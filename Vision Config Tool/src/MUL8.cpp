@@ -499,6 +499,9 @@ void MUL8::finish() {
 		//		MUL8_set = false;
 		//		MUL8_play_start = false;
 	}
+	if (MUL8_finished && second_half == true) {
+		exit(0);
+	}
 }
 
 void MUL8::actionStep() {
