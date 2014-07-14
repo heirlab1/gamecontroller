@@ -21,7 +21,11 @@
 
 class MUL8 {
 	void search();
-	void walkTowardsBall();
+	void walkTowardsBall(int);
+	void checkLocation();
+	void turn(int);
+	void doMotion();
+	double getUnixTime();
 	void getBehindBall();
 	void alignToKick();
 	void init();

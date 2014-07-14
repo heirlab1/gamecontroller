@@ -71,11 +71,11 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1430083732.474888997" name="main.cpp" rcbsApplicability="disable" resourcePath="src/main.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341.5271620">
-						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341.5271620" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341"/>
+					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1430083732.1972080643" name="myServer.cpp" rcbsApplicability="disable" resourcePath="src/myServer.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341.132896613">
+						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341.132896613" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341"/>
 					</fileInfo>
 					<sourceEntries>
-						<entry excluding="src/main.cpp|src/GoalAndBallDetect.cpp|src/DisplayImage.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="src/myServer.cpp|src/main.cpp|src/GoalAndBallDetect.cpp|src/DisplayImage.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

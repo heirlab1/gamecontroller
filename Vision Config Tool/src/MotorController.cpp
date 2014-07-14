@@ -16,7 +16,6 @@
 #include <iostream>
 #include <fstream>
 #include <map>
-#include <pthread.h>
 
 //#include "Dyna.h"
 
@@ -24,9 +23,7 @@
 
 bool motionExecutionDisabled= false;
 
-pthread_mutex_t mutex_for_some_value = PTHREAD_MUTEX_INITIALIZER;
-
-clock_t lastClock, batteryClock;
+double lastClock, batteryClock;
 std::map<std::string, Motion> motions;
 std::map<std::string, Motion>::iterator motions_iterator;
 
@@ -40,14 +37,17 @@ int mirrorSigns[]= {1, -1,  1, -1, -1, 1, -1, 1, 1, 1, 1, -1};
 int mirroredPose[NUM_MOTORS];
 std::vector<int> currentPose;
 
+int currentTorque= 1023;        //0-1023
 std::string currentMotion = "";
 std::string currentMotionQueue = "";
+
 
 std::vector<std::string> machineQueueNames;     //a list of all the motion queues that can be accessed by name (for writing to .mtnq)
 std::vector<std::string> friendlyQueueNames;    //a list of all the motion queues that can be accessed by name (for writing to .mtnq)
 
 std::vector<std::string> machineNames;  //a list of all the motions that can be accessed by name (for writing to .mtn)
 std::vector<std::string> friendlyNames; //a list of all the motions that can be accessed by name (by the user with a friendly name)
+
 
 // TODO add these motor status/battery checks to the final framework
 double batteryLevel= 0.00;
@@ -58,11 +58,20 @@ int result;
 std::vector<int> motors;
 std::vector<int> data;
 
-bool executingMotion = false;
+
+double MotorController::getUnixTime() {
+        struct timespec tv;
+
+        if (clock_gettime(CLOCK_REALTIME, &tv) != 0) {
+                return 0;
+        }
+
+        return (((double)tv.tv_sec) + (tv.tv_nsec / 1000000000.0));
+}
 
 // Default Constructor
 MotorController::MotorController() {
-
+        executing = false;
 }
 
 void MotorController::init() {
@@ -73,9 +82,6 @@ void MotorController::init() {
     initialize();
     // Set the current motion to standing
     currentMotion = "Stand";
-
-//        setMotion(currentMotion);
-//        step(false);
 
 
     motors.resize(TOTAL_MOTORS);
@@ -93,10 +99,10 @@ MotorController::~MotorController() {
         dxl_terminate();
 }
 void MotorController::initialize() {
-        lastClock = clock();
-        batteryClock = clock();
+        lastClock = getUnixTime();
+        batteryClock = getUnixTime();
 
-        changePID();
+        //changePID(P_FOR_PID);
         setStatusReturnLevel(STATUS_RETURN);
         setReturnDelayTime();
         initializeMotions();
@@ -109,6 +115,7 @@ void MotorController::initialize() {
 }
 //Initialize the Motions. Called from initialize()
 void MotorController::initializeMotions() {
+
 
         // Define an input file stream, and open the number of motions file
         std::ifstream motionFile;
@@ -177,12 +184,12 @@ void MotorController::initializeMotions() {
                 //here the parameters are the real file path and the friendly name for that file
                 motions[friendlyNames[i]] = getInitializedMotion((std::string)(MOTIONS_PREPATH) + machineNames[i], friendlyNames[i]);
 
+
                 // This way does not allow the motions to be overwritten, which produces errors unless code is restarted
                 //motions.insert(std::pair<std::string, Motion>(friendlyNames[i], getInitializedMotion((std::string)(MOTIONS_PREPATH + machineNames[i]), friendlyNames[i])));
 
                 //i++;
         }
-
 }
 
 void MotorController::initializeMotionQueues(){
@@ -328,6 +335,8 @@ Motion MotorController::getInitializedMotion(std::string motion_file, std::strin
         tempMotion.motorVelocities.resize(numSteps);
         tempMotion.motorIDs.resize(numSteps);
         tempMotion.time.resize(numSteps);
+        tempMotion.torqueReadings.resize(numSteps);
+        tempMotion.motorCompliance.resize(numSteps);
 
         // Loop through the second position and velocity vectors, setting their size equal to the number of motors
         for (int i = 0; i < numSteps; i++)
@@ -335,8 +344,13 @@ Motion MotorController::getInitializedMotion(std::string motion_file, std::strin
                 tempMotion.motorPositions[i].resize(tempMotion.num_motors);
                 tempMotion.motorVelocities[i].resize(tempMotion.num_motors);
                 tempMotion.motorIDs[i].resize(tempMotion.num_motors);
+                tempMotion.torqueReadings[i].resize(tempMotion.num_motors);
+                tempMotion.motorCompliance[i].resize(tempMotion.num_motors); //TODO unless testing, torque should be 100%
+
+                for(int j= 0; j<tempMotion.num_motors; j++){
+                        tempMotion.motorCompliance[i][j]= DEFAULT_MAX_TORQUE; //TODO set to default 100%
+                }
         }
-        //std::cout << "Motion motor vectors were resized" <<std::endl;
 
         // Initialize the time, position, and velocity data fields
         for (int i = 0; i < numSteps; i++)
@@ -351,8 +365,6 @@ Motion MotorController::getInitializedMotion(std::string motion_file, std::strin
                 std::stringstream(aString) >> tempTime;
                 tempMotion.time[i] = tempTime;
 
-                //std::cout<<"\n"<<tempMotion.time[i]<<"\n"<<std::endl;
-
                 for (int j = 0; j < tempMotion.num_motors; j++)
                 {
                         // Initialize the motor positions and velocities from the text file
@@ -364,54 +376,43 @@ Motion MotorController::getInitializedMotion(std::string motion_file, std::strin
 
                         // Find the location of the space character
                         int space = aString.find(tabChar);
-                        if(space<0){
-                                std::cout<<space<<"getting error reading motion from file: "<<std::endl;
-                        }
 
-                        //std::cout<<"this is the value of 'space' "<<space<<std::endl;
-                        if(space==(int)aString.length()){
-                                std::cout<<"getting error reading motion from file: "<<aString.length()<<std::endl;
-                        }
-                        std::string tempString= aString.substr(space+1);
+                        std::string split_after_column_1 = aString.substr(space+1);
 
-                        int space2= tempString.find(tabChar);
-                        //std::cout<<"this is the value of 'space 2' "<<space<<std::endl;
+                        int space2= split_after_column_1.find(tabChar);
+
+                        std::string split_after_column_2 = split_after_column_1.substr(space2+1);
+
+                        int space3= split_after_column_2.find(tabChar);
+
 
                         // Push the first number into the motor position. In [i=rows][j=columns], i is the step number of the motion we're in and j is the motor number
                         std::stringstream(aString.substr(0, space))>> tempMotion.motorPositions[i][j];
-                        if(space2>0){
-                                // Push the second number into the velocity position
-                                std::stringstream(tempString.substr(0, space2)) >> tempMotion.motorVelocities[i][j];
 
+                        if(space2> 0){
+                        // Push the second number into the velocity position
+
+                        std::stringstream(split_after_column_1.substr(0, space2)) >> tempMotion.motorVelocities[i][j];
+                        }
+                        if(space3>0){
 
                                 // Push the third number into the motor ID position
-                                std::stringstream(tempString.substr(space2+1)) >> tempMotion.motorIDs[i][j];
+                                // Push the fourth number into the compliancy position
+                                std::stringstream(split_after_column_2.substr(0, space3)) >> tempMotion.motorIDs[i][j];
 
-                                //std::cout<<"motor ID = "<<tempMotion.motorIDs[i][j]<<std::endl;
+                                std::stringstream(split_after_column_2.substr(space3+1)) >> tempMotion.motorCompliance[i][j];
+
                         }
+
 
                         else{
                                 std::stringstream(aString.substr(space+1)) >> tempMotion.motorVelocities[i][j];
                         }
 
-                        //std::cout << "looking at motor " << j << " value is " <<std::endl;
-                        //std::cout << tempMotion.motorIDs[i][j] << std::endl;
-
-                        //std::cout<<tempMotion.motorPositions[i][j]<<"\t"<<tempMotion.motorVelocities[i][j]<<"\t"<<tempMotion.motorIDs[i][j]<<std::endl;
                 }
-                //std::cout << "read values into vectors from file" <<std::endl;
-
-                //go through motor ID vector and find the number of motors used by stopping at motor ID zero (no such thing as motor ID 0)
-
-                //                      std::cout << "entrered first step" <<std::endl;
-
-                //std::cout << "found num_motors" <<std::endl;
-
 
         }
-        //std::cout << "Motion Built ^\n "<<std::endl;
-        //std::cout << "This motion uses "<<tempMotion.num_motors<< " motors"<<std::endl;
-        // Close the text file
+
         file.close();
 
         // Return the newly initialized motion
@@ -488,9 +489,9 @@ MotionQueue MotorController::getInitializedMotionQueue(std::string motion_queue_
 }
 
 // Returns the time in seconds since the lastClock parameter
-float MotorController::timeSince(float lastClock) {
+float MotorController::timeSince(double lastClock) {
         // Return the number of seconds since the last clock was taken
-        return (((float)(clock() - lastClock)/CLOCKS_PER_SEC));
+        return (((getUnixTime() - lastClock)));
 }
 
 /**
@@ -547,12 +548,36 @@ void MotorController::executeNext(Motion motion) {
                         sendSyncWrite(motors, GOAL_ACCELERATION, WORD, data);
                 }
 
+
                 for (int i = 0; i < motion.num_motors; i++) {
-                        data[i] = motion.motorVelocities[motion.currentIndex][i];
+                        if(motion.currentIndex==0){
+
+                                int finalPos= motion.motorPositions[0][i];
+                                data[i]= SPEED_CONSTANT*abs(dxl_read_word(i+1,PRESENT_POSITION)-finalPos)/motion.time[0];
+
+                        }
+//                      else{
+//                              data[i]= SPEED_CONSTANT*abs(dxl_read_word(i+1,PRESENT_POSITION)-motion.motorPositions[currMo.currentIndex][i])/currMo.time[currMo.currentIndex];
+//
+//                      }
+                        else{
+                                data[i] = motion.motorVelocities[motion.currentIndex][i];
+                        }
                 }
                 sendSyncWrite(motors,  MOVING_SPEED, WORD, data);
 
-                // Write the goal positions to each of the motors
+                //TODO for setting compliancy in the motors
+
+                for (int i = 0; i < motion.num_motors; i++) {
+//                      if(currMo.currentIndex==0){
+//                      //try changing the torque back to something less abrupt
+//                      }
+                        data[i] = motion.motorCompliance[motion.currentIndex][i];
+//                      std::cout<<"Setting Motor "<<motion.motorIDs[motion.currentIndex][i]<<" to be compliant. "<<motion.motorCompliance[motion.currentIndex][i]<< " of 1023"<<std::endl;
+
+                }
+                sendSyncWrite(motors, MAX_TORQUE, WORD, data);
+
                 // TODO Change this so it includes the whole body
 
                 for (int i = 0; i < motion.num_motors; i++) {
@@ -562,33 +587,15 @@ void MotorController::executeNext(Motion motion) {
                 sendSyncWrite(motors,  GOAL_POSITION, WORD, data);
         }
 
-        if(motion.currentIndex!=0){
-                std::cout << "Step " << motion.currentIndex-1<< " took " << (float) timeSince((float) lastClock) << " seconds." << std::endl;
-        }
-        std::cout <<"\n"<< motion.friendlyName <<std::endl;
-        std::cout <<"\nStep "<< motion.currentIndex<< " of "<< motion.length-1<< " should take " << motion.time[motion.currentIndex] << " seconds: " <<std::endl;
-
-        /*show results of the step. Did the motors go where they were supposed to? also show the speeds. formatted for easy reading*/
-//        for (int i = 0; i < motion.num_motors; i++) {
-//                if(i<9){
-//                        std::cout <<"Motor  "<< motion.motorIDs[motion.currentIndex][i]<< "  Goal Position: " <<data[i]<<"\tActual Position: "<< getMotorPositionReadWord(i+1);
-//                        std::cout<<"\tSpeed: "<<motion.motorVelocities[motion.currentIndex][i]<< std::endl;
-//                }
-//                else{
-//                        std::cout <<"Motor "<< motion.motorIDs[motion.currentIndex][i]<< "  Goal Position:  " <<data[i]<<"\tActual Position: "<< getMotorPositionReadWord(i+1);
-//                        std::cout <<"\tSpeed: "<<motion.motorVelocities[motion.currentIndex][i]<< std::endl;
-//
-//                }
-//        }
-//        for(int i= 0; i < active_joints; i++ ){
-//                if(i==0){
-//                        std::cout<<"\n"<< motors.size() <<" ACTIVE JOINTS! "<<std::endl;
-//                }
+        for(int i= 0; i < active_joints; i++ ){
+                if(i==0){
+//                      std::cout<<"\n"<< motors.size() <<" ACTIVE JOINTS! "<<std::endl;
+                }
 //                std::cout<<" "<<motors[i];
-//        }
+        }
         std::cout<<"\n\n";
         // Reset the clock
-        lastClock = clock();
+        lastClock = getUnixTime();
 }
 
 
@@ -599,12 +606,13 @@ void MotorController::executeNext(Motion motion) {
  * and if so, if the proper procedure has been followed.
  * @return Returns true if motion has finished, otherwise returns false.
  */
-bool MotorController::step(bool isFalling) {
+int MotorController::step(bool isFalling) {
         // TODO Add error checking to see if robot has fallen
         // If it hasint  fallen, make sure that it's currently standing steady
 
         // What we are going to return
-        bool returnVar = false;
+                executing = true;
+        int returnVar = MUL8_STEP_NULL;
 
         if (isFalling)
         {
@@ -620,20 +628,22 @@ bool MotorController::step(bool isFalling) {
 
                 // TODO add code for getting back up
 
-                return false;
+                return MUL8_STEP_NULL;
 
         }
         else //do this is if robot is not falling
         {
-//                motions_iterator = motions.find(currentMotion);
+                motions_iterator = motions.find(currentMotion);
                 // If it's been longer than the time we have to wait, let's do the next movement or step
-                if (timeSince((float)lastClock) >= currMo.time[currMo.currentIndex-1])
+                if (timeSince(lastClock) >= currMo.time[currMo.currentIndex-1])
+
                 {
+
                         //If motion is over
                         if (currMo.currentIndex == currMo.length)
                         {
 
-
+                                //printTorqueReadings();
                                 //TODO check the temp of each motor and the battery level. Battery level is not very accurate
 
                                 if(checkBattery==1){
@@ -674,132 +684,46 @@ bool MotorController::step(bool isFalling) {
                                         //return voltage > VOLTAGE_THRESHHOLD;
                                 }
                                 // We have finished moving, so we'll let the caller know
-                                returnVar =  true;
+                                returnVar =  MUL8_MOTION_FINISHED;
+                                executing = false;
                         }
                         //Motion is not over
                         else
                         {
 
                                 checkBattery= 1;        //lets allow the battery to be checked
-                                // Execute the next step
-                                executeNext(currMo);
-                                // Increment the motion counter
-                                currMo.currentIndex++;
-                        }
 
-                }
+                                //Print the status of the current motion.
 
-        }
+                                if(currMo.currentIndex!=0){
+                                        std::cout <<"\nMotion: "<< currMo.friendlyName <<std::endl;
 
-        return returnVar;
-}
-
-bool MotorController::step(bool isFalling, unsigned long currentTime) {
-        // TODO Add error checking to see if robot has fallen
-        // If it hasint  fallen, make sure that it's currently standing steady
-
-        // What we are going to return
-        bool returnVar = false;
-
-        if (isFalling)
-        {
-                // Relax all motors
-                for (int i = 0; i < NUM_MOTORS; i++)
-                {
-                        //                      motor_dynamixel.dxl_write_byte(i+1, TORQUE_ENABLE, 0);
-                        dxl_write_byte(i+1, TORQUE_ENABLE, 0);
-                }
-
-                // Wait for fall to finish
-                sleep(5000);
-
-                // TODO add code for getting back up
-
-                return false;
-
-        }
-        else //do this is if robot is not falling
-        {
-//                motions_iterator = motions.find(currentMotion);
-                // If it's been longer than the time we have to wait, let's do the next movement or step
-                if ((currentTime-lastClock)/CLOCKS_PER_SEC >= currMo.time[currMo.currentIndex-1])
-                {
-                        //If motion is over
-                        if (currMo.currentIndex == currMo.length)
-                        {
-
-
-                                //TODO check the temp of each motor and the battery level. Battery level is not very accurate
-
-                                if(checkBattery==1){
-                                        batteryLevel=0; //start fresh
-                                        dxl_write_byte(23, TORQUE_ENABLE, 0); //for neck pan motor disable torque
-                                        double batteryCheckSamples=5;
-                                        for(int i = 0; i<batteryCheckSamples; i++){
-                                                batteryLevel+= (double) (dxl_read_byte(23, 42)*.1);
-                                        }
-
-                                        std::cout <<std::endl<< "Battery Voltage ~ ";
-                                        std::cout.setf( std::ios::fixed, std:: ios::floatfield ); // floatfield set to fixed
-                                        std::cout << batteryLevel/batteryCheckSamples << "\n\n";
-                                        /*Battery readings here are across motors, not at the leads of the power source
-                                         *so the motors will read at about 0.5-0.7 V lower than the leads of the
-                                         *power source. The 14.8 V LiPo batteries that we are using cannot go below
-                                         *2.5V/cell. Our batteries have 4 cells, so the battery should not fall below 10V.
-                                         *
-                                         *To be safe, we should tell the robot to move into a stable position
-                                         *when the battery reading (from the motors) falls below 10.0 V*/
-
-                                        for (int i = 0; i < NUM_MOTORS; i++)
-                                        {
-                                                //                      motor_dynamixel.dxl_write_byte(i+1, TORQUE_ENABLE, 0);
-
-                                                temperature= (int) dxl_read_byte(i+1, 43);
-                                                if(i<9){
-                                                        std::cout <<"Motor  "<<i+1<<": "<< temperature <<"C"<<std::endl;
-                                                }
-                                                else{
-                                                        std::cout <<"Motor "<<i+1<<": "<< temperature <<"C"<<std::endl;
-
-                                                }
-                                        }
-                                        std::cout <<std::endl;
-
-                                        checkBattery=0; //don't allow the battery to be checked until it is set to 1 again(when another motion executes)
-                                        //return voltage > VOLTAGE_THRESHHOLD;
+                                        std::cout << "Step " << currMo.currentIndex-1<< " took " <<  timeSince( lastClock) << " seconds." << std::endl;
                                 }
-                                // We have finished moving, so we'll let the caller know
-                                returnVar =  true;
-                        }
-                        //Motion is not over
-                        else
-                        {
+                                std::cout <<"\nStep "<< currMo.currentIndex<< " of "<< currMo.length-1<< " should take " << currMo.time[currMo.currentIndex] << " seconds: " <<std::endl;
 
-                                checkBattery= 1;        //lets allow the battery to be checked
                                 // Execute the next step
                                 executeNext(currMo);
+                                //getTorqueReadings();
                                 // Increment the motion counter
                                 currMo.currentIndex++;
+                                returnVar = MUL8_STEP_FINISHED;
                         }
 
+                        // Return the correct value;
+                        std::cout << "Returning " << returnVar << " from MotorController" << std::endl;
+                        return returnVar;
                 }
 
+                return returnVar;
+
         }
-
-        return returnVar;
 }
 
-void* MotorController::executeMotion(void * arg) {
-	std::cout << "This is a thread" << std::endl;
-	pthread_mutex_lock(&mutex_for_some_value);
-	MotorController* mC = (MotorController *)arg;
-	std::cout << mC->getMotion() << std::endl;
-	while (!mC->step(false, clock())) { }
-	pthread_mutex_unlock(&mutex_for_some_value);
-	executingMotion = false;
-	std::cout << "Exiting Thread" << std::endl;
-	pthread_exit(NULL);
+double MotorController::getStepTime() {
+        return currMo.time[currMo.currentIndex-1];
 }
+
 
 /**
  * Motion is set here from Main
@@ -808,26 +732,16 @@ bool MotorController::setMotion(std::string newMotion) {
         currentMotion = newMotion;
         bool result = false;
         if (motions.find(currentMotion) != motions.end()) {
-        	// Motion found, so set the current motion
-        	currMo = motions.find(currentMotion)->second;
-        	currMo.currentIndex = 0;
+                // Motion found, so set the current motion
+                currMo = motions.find(currentMotion)->second;
+                currMo.currentIndex = 0;
+                std::cout << "Set motion to: " << currentMotion << std::endl;
 
-        	executingMotion = true;
-        	pthread_t motion;
-        	pthread_create(&motion, NULL, &MotorController::executeMotion, (void *)(this));
-        	pthread_detach(motion);
-//        	pthread_join(motion, NULL);
-
-        	result = true;
+                result = true;
         }
         //std::cout<<"setMotion works"<<std::endl;
         return result;
 }
-
-bool MotorController::isExecuting() {
-	return executingMotion;
-}
-
 bool MotorController::setMotionQueue(std::string newMotionQueue) {
         currentMotionQueue = newMotionQueue;
         bool result = false;
@@ -843,6 +757,10 @@ bool MotorController::setMotionQueue(std::string newMotionQueue) {
 // Get the currently executing motion
 std::string MotorController::getMotion() {
         return currentMotion;
+}
+
+bool MotorController::isExecuting() {
+        return executing;
 }
 
 void MotorController::sendSyncWrite(std::vector<int> ids, int address, int instruction_length, std::vector<int> data) {
@@ -979,6 +897,45 @@ int MotorController::getMotorPositionReadWord(int id) {
         return dxl_read_word(id, PRESENT_POSITION);
 }
 
+void MotorController::calibrateMotor(int motor, int adjust){
+        for(int i = 0; i<currMo.length; i++){
+                std::cout<< "Changing Motor "<< motor << " from "<<currMo.motorPositions[i][motor-1];
+                currMo.motorPositions[i][motor-1]+= adjust;
+                std::cout<< "to"  <<currMo.motorPositions[i][motor-1]<<std::endl;
+        }
+        recalculateCurrentMotionSpeeds();
+
+}
+
+void MotorController::getTorqueReadings(){
+
+
+        for(int j= 0; j<currMo.num_motors; j++){
+                currMo.torqueReadings[currMo.currentIndex][j]= dxl_read_word(PRESENT_LOAD, j+1);
+        }
+
+}
+void MotorController::printTorqueReadings(){
+        std::ofstream outFile;
+        std::string extension = currMo.friendlyName +"_torque.data";
+
+        std::string wholePath = DATA_PREPATH + extension; //show the path of the motion file
+
+        outFile.open(wholePath.c_str()); //open this path
+
+        //**********************************Writing the current motion struct into this .mtn file
+
+        for(int i= 0; i<currMo.num_motors; i++){
+
+                for(int j= 0; j<currMo.length; j++){
+                        outFile<< currMo.torqueReadings[j][i]<<"\t";
+                }
+                outFile<< "\n";
+
+        }
+        outFile.close();
+}
+
 std::vector<int> MotorController::getMotorPositionSyncRead(int numMotors) {
         std::vector<int> positions;
         positions.resize(numMotors);
@@ -1047,7 +1004,7 @@ void MotorController::executePrevious() {
         }
         sendSyncWrite(motors,  GOAL_POSITION, WORD, data);
         if(currMo.currentIndex!=0){
-                std::cout << "Step " << currMo.currentIndex-1<< " took " << (float) timeSince((float) lastClock) << " seconds." << std::endl;
+                std::cout << "Step " << currMo.currentIndex-1<< " took " <<  timeSince( lastClock) << " seconds." << std::endl;
         }
         std::cout <<"\nStep "<< currMo.currentIndex<< " of "<< currMo.length-1<< " should take " << currMo.time[currMo.currentIndex] << " seconds: " <<std::endl;
 
@@ -1062,7 +1019,7 @@ void MotorController::executePrevious() {
                 }
         }
         // Reset the clock
-        lastClock = clock();
+        lastClock = getUnixTime();
 }
 
 void MotorController::disableAllMotors() {
@@ -1435,7 +1392,25 @@ int MotorController::convDegrees(int pos, int index){
         return degrees;
 }
 
+void MotorController::chooseCompliantLimb(int step, int motorID, int new_compliance){
+        if(step== -1 && motorID==-1){
+                for(int i= 0; i<currMo.length; i++){
+                        for(int j=0; j<currMo.num_motors; j++){
+                                currMo.motorCompliance[i][j]= new_compliance; //setting torque limits for all steps in motion
+                        }
+                }
+        }
+        else{
+                currMo.motorCompliance[step][motorID-1]= new_compliance;
+        }
+}
 
+void MotorController::setCompliantLimb(int compliancy){
+        currentTorque= compliancy;
+}
+//void MotorController::setTorqueLimit(int id, int torque) {            //set new torque limits
+//      dxl_write_word(id, TORQUE_LIMIT, torque);
+//}
 void MotorController::disableMotor(int motor) {
         dxl_write_byte(motor, TORQUE_ENABLE, 0);
 }
@@ -1445,9 +1420,17 @@ void MotorController::enableMotor(int motor) {
         //      std::cout << "Present Position of motor " << motor << ": " << dxl_read_word(motor, PRESENT_POSITION) << std::endl;
 }
 
-void MotorController::changePID() {
-        for(int i = 0; i < NUM_MOTORS; i++) {
-                dxl_write_byte(i+1, P_GAIN, P_FOR_PID);
+void MotorController::changePID(int motor, int newPID) {
+        if(motor==0){
+
+                for(int i= 0; i<TOTAL_MOTORS; i++){
+                        dxl_write_byte(i+1, newPID, P_FOR_PID);
+                }
+
+        }
+        else{
+
+                dxl_write_byte(motor, newPID, P_FOR_PID);
         }
 }
 //functions for manipulating the legs
@@ -1770,7 +1753,7 @@ void MotorController::printMotion(int printCode){
 
                         /*then print out each motor position and speed for this step*/
                         for(int j=0; j<currMo.num_motors; j++){
-                                std::cout<< currMo.motorPositions[i][j] <<"\t" <<currMo.motorVelocities[i][j]<<"\t"<<currMo.motorIDs[i][j]<<std::endl;
+                                std::cout<< currMo.motorPositions[i][j] <<"\t" <<currMo.motorVelocities[i][j]<<"\t"<<currMo.motorIDs[i][j]<<"\t"<<currMo.motorCompliance[i][j]<<std::endl;
                         }
                         std::cout<<"+---------+"<<std::endl;
                         std::cout<<"| step "<<i<<"  |"<<std::endl;
@@ -1820,7 +1803,7 @@ void MotorController::printMotion(int printCode){
                         //then print out each motor position and speed for this step
                         for(int j=0; j<currMo.num_motors; j++){
 
-                                outFile<< currMo.motorPositions[i][j] <<"\t" <<currMo.motorVelocities[i][j]<<"\t"<<currMo.motorIDs[i][j]<<"\n";
+                                outFile<< currMo.motorPositions[i][j] <<"\t" <<currMo.motorVelocities[i][j]<<"\t"<<currMo.motorIDs[i][j]<<"\t"<<currMo.motorCompliance[i][j]<<"\n";
                                 std::cout << "printed pose speed and motor for step " <<i << std::endl;
 
                         }
@@ -2005,6 +1988,13 @@ void MotorController::addMotionStep() {
         for(int j= 0; j< currMo.num_motors; j++){
                 std::cout<<currMo.motorPositions[currMo.currentIndex][j]<<"\t"<<currMo.motorVelocities[currMo.currentIndex][j]<<"\t"<<currMo.motorIDs[currMo.currentIndex][j]<<std::endl;
         }
+
+}
+
+void MotorController::setMotorLimits(int motor, int CW, int CCW){
+        dxl_write_word(motor, CW_LIMIT, CW);
+        dxl_write_word(motor, CCW_LIMIT, CCW);
+
 
 }
 
@@ -2262,7 +2252,7 @@ void MotorController::recalculateCurrentMotionSpeeds(){
         int initialPos;
         int finalPos;
         for(int i= 0; i<currMo.length; i++){
-                for(int j=0; j<NUM_MOTORS; j++){
+                for(int j=0; j<currMo.num_motors; j++){
                         if(i == 0){
                                 currMo.motorVelocities[i][j]= INITIAL_SPEED;
                                 std::cout <<"Step "<< currMo.currentIndex<< "...Motor "<< j+1<< " position saved..." <<std::endl;
@@ -2270,9 +2260,9 @@ void MotorController::recalculateCurrentMotionSpeeds(){
                         }
                         else {
                                 /*Calaculate speeds to get from one pose to the next*/
-                                initialPos= currMo.motorPositions[currMo.currentIndex-1][j];
-                                finalPos= currMo.motorPositions[currMo.currentIndex][j];
-                                currMo.motorVelocities[currMo.currentIndex][j]= SPEED_CONSTANT*abs(initialPos-finalPos)/currMo.time[currMo.currentIndex];
+                                initialPos= currMo.motorPositions[i-1][j];
+                                finalPos= currMo.motorPositions[i][j];
+                                currMo.motorVelocities[i][j]= SPEED_CONSTANT*abs(initialPos-finalPos)/currMo.time[currMo.currentIndex];
                         }
                 }
                 std::cout <<"Recalculating speed for step "<< i<<std::endl;
@@ -2290,7 +2280,7 @@ void MotorController::displayMotionStatus(){
                         std::cout<<" "<<currMo.motorIDs[0][i];
                 }
                 std::cout<<"\nROBOT IS IN *ACTIVE* MODE\n";
-                std::cout<<"[CURRENT STEP IS "<<currMo.currentIndex-1<<"]"<<std::endl;;
+                std::cout<<currMo.friendlyName<<" [CURRENT STEP IS "<<currMo.currentIndex-1<<"]"<<std::endl;;
         }
         else{
                 std::cout<<"RECORDING MOTORS";
@@ -2340,7 +2330,7 @@ void MotorController::displayMotionStatus(){
 }
 
 void MotorController::disableMotionExecution(){
-        disableAllMotors();     //this will turn off the motors. active mode must be entered
+        //disableAllMotors();   //this will turn off the motors. active mode must be entered
         motionExecutionDisabled= true;  //this variable is applied in executeNext()
 }
 void MotorController::enableMotionExecution(){
@@ -2550,106 +2540,115 @@ int MotorController::getBoundedPosition(int pos, int id){
 }
 
 void MotorController::moveHead(int direction, int speed) {
-	switch (direction) {
-	case MUL8_HEAD_UP:
-		// Write the moving speed to motor 24
-		dxl_write_word(24, MOVING_SPEED, speed);
-		// Set the goal position as the farthest back we can go
-		dxl_write_word(24, GOAL_POSITION, M24_CCW);
-		dxl_write_word(23, GOAL_POSITION, dxl_read_word(23, PRESENT_POSITION));
-		break;
-	case MUL8_HEAD_DOWN:
-		// Write the moving speed to motor 24
-		dxl_write_word(24, MOVING_SPEED, speed);
-		// Set the goal position as the farthest forward we can go
-		dxl_write_word(24, GOAL_POSITION, M24_CW);
-		dxl_write_word(23, GOAL_POSITION, dxl_read_word(23, PRESENT_POSITION));
-		break;
-	case MUL8_HEAD_LEFT:
-		// Write the moving speed to motor 23
-		dxl_write_word(23, MOVING_SPEED, speed);
-		// Write the goal position as the farthest left we can go
-		dxl_write_word(23, GOAL_POSITION, M23_CCW);
-		dxl_write_word(24, GOAL_POSITION, dxl_read_word(24, PRESENT_POSITION));
-		break;
-	case MUL8_HEAD_RIGHT:
-		// Write the moving speed to motor 23
-		dxl_write_word(23, MOVING_SPEED, speed);
-		// Set the goal position as the farthest right we can go
-		dxl_write_word(23, GOAL_POSITION, M23_CW);
-		dxl_write_word(24, GOAL_POSITION, dxl_read_word(24, PRESENT_POSITION));
-		break;
-	case MUL8_HEAD_UP_LEFT:
-		// Write the moving speed to motors 23 and 24
-		dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
-		dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
-		// Set the goal position as the farthest left and up we can go
-		dxl_write_word(23, GOAL_POSITION, M23_CCW);
-		dxl_write_word(24, GOAL_POSITION, M24_CCW);
-		break;
-	case MUL8_HEAD_DOWN_LEFT:
-		// Set the speed for both motors 23 and 24
-		dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
-		dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
-		// Set the goal position as the farthest left and down we can go
-		dxl_write_word(23, GOAL_POSITION, M23_CCW);
-		dxl_write_word(24, GOAL_POSITION, M24_CW);
-		break;
+        switch (direction) {
+        case MUL8_HEAD_UP:
+                // Write the moving speed to motor 24
+                dxl_write_word(24, MOVING_SPEED, speed);
+                // Set the goal position as the farthest back we can go
+                dxl_write_word(24, GOAL_POSITION, M24_CCW);
+                dxl_write_word(23, GOAL_POSITION, dxl_read_word(23, PRESENT_POSITION));
+                break;
+        case MUL8_HEAD_DOWN:
+                // Write the moving speed to motor 24
+                dxl_write_word(24, MOVING_SPEED, speed);
+                // Set the goal position as the farthest forward we can go
+                dxl_write_word(24, GOAL_POSITION, M24_CW);
+                dxl_write_word(23, GOAL_POSITION, dxl_read_word(23, PRESENT_POSITION));
+                break;
+        case MUL8_HEAD_LEFT:
+                // Write the moving speed to motor 23
+                dxl_write_word(23, MOVING_SPEED, speed);
+                // Write the goal position as the farthest left we can go
+                dxl_write_word(23, GOAL_POSITION, M23_CCW);
+                dxl_write_word(24, GOAL_POSITION, dxl_read_word(24, PRESENT_POSITION));
+                break;
+        case MUL8_HEAD_RIGHT:
+                // Write the moving speed to motor 23
+                dxl_write_word(23, MOVING_SPEED, speed);
+                // Set the goal position as the farthest right we can go
+                dxl_write_word(23, GOAL_POSITION, M23_CW);
+                dxl_write_word(24, GOAL_POSITION, dxl_read_word(24, PRESENT_POSITION));
+                break;
+        case MUL8_HEAD_UP_LEFT:
+                // Write the moving speed to motors 23 and 24
+                dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
+                dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
+                // Set the goal position as the farthest left and up we can go
+                dxl_write_word(23, GOAL_POSITION, M23_CCW);
+                dxl_write_word(24, GOAL_POSITION, M24_CCW);
+                break;
+        case MUL8_HEAD_DOWN_LEFT:
+                // Set the speed for both motors 23 and 24
+                dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
+                dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
+                // Set the goal position as the farthest left and down we can go
+                dxl_write_word(23, GOAL_POSITION, M23_CCW);
+                dxl_write_word(24, GOAL_POSITION, M24_CW);
+                break;
 
-	case MUL8_HEAD_UP_RIGHT:
-		// Write the moving speed to motors 23 and 24
-		dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
-		dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
-		// Set the goal position as the farthest up and right we can go
-		dxl_write_word(23, GOAL_POSITION, M23_CW);
-		dxl_write_word(24, GOAL_POSITION, M24_CCW);
-		break;
-	case MUL8_HEAD_DOWN_RIGHT:
-		// Write the moving speed to motors 23 and 24
-		dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
-		dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
-		// Set the goal position as the farthest down and right we can go
-		dxl_write_word(23, GOAL_POSITION, M23_CW);
-		dxl_write_word(24, GOAL_POSITION, M24_CW);
-		break;
-	default:
-		break;
-	}
+        case MUL8_HEAD_UP_RIGHT:
+                // Write the moving speed to motors 23 and 24
+                dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
+                dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
+                // Set the goal position as the farthest up and right we can go
+                dxl_write_word(23, GOAL_POSITION, M23_CW);
+                dxl_write_word(24, GOAL_POSITION, M24_CCW);
+                break;
+        case MUL8_HEAD_DOWN_RIGHT:
+                // Write the moving speed to motors 23 and 24
+                dxl_write_word(23, MOVING_SPEED, speed/sqrt(2));
+                dxl_write_word(24, MOVING_SPEED, speed/sqrt(2));
+                // Set the goal position as the farthest down and right we can go
+                dxl_write_word(23, GOAL_POSITION, M23_CW);
+                dxl_write_word(24, GOAL_POSITION, M24_CW);
+                break;
+        default:
+                break;
+        }
 }
 
 void MotorController::stopHead() {
-	int motor23pos = dxl_read_word(23, PRESENT_POSITION);
-	int motor24pos = dxl_read_word(24, PRESENT_POSITION);
-	dxl_write_word(23, GOAL_POSITION, motor23pos);
-	dxl_write_word(24, GOAL_POSITION, motor24pos);
+        int motor23pos = dxl_read_word(23, PRESENT_POSITION);
+        int motor24pos = dxl_read_word(24, PRESENT_POSITION);
+        dxl_write_word(23, GOAL_POSITION, motor23pos);
+        dxl_write_word(24, GOAL_POSITION, motor24pos);
 }
 
 bool MotorController::headLeftRightIsMoving() {
-	bool result = false;
-	int present23pos = dxl_read_word(23, PRESENT_POSITION);
-	int goal23pos = dxl_read_word(23, GOAL_POSITION);
-//	std::cout << "23: " << present23pos << " vs " << goal23pos << std::endl;
-	if (present23pos < (goal23pos-25) || (present23pos > goal23pos+25)) {
-//		std::cout << "Returning true" << std::endl;
-		result = true;
-	}
-	return result;
+        bool result = false;
+        int present23pos = dxl_read_word(23, PRESENT_POSITION);
+        int goal23pos = dxl_read_word(23, GOAL_POSITION);
+//      std::cout << "23: " << present23pos << " vs " << goal23pos << std::endl;
+        if (present23pos < (goal23pos-25) || (present23pos > goal23pos+25)) {
+//              std::cout << "Returning true" << std::endl;
+                result = true;
+        }
+        return result;
 }
 
 bool MotorController::headUpDownIsMoving() {
-	bool result = false;
-	int present24pos = dxl_read_word(24, PRESENT_POSITION);
-	int goal24pos = dxl_read_word(24, GOAL_POSITION);
-//	std::cout << "24: " << present24pos << " vs " << goal24pos << std::endl;
-	if (present24pos < (goal24pos-25) || present24pos > goal24pos+25) {
-		result = true;
-	}
-	return result;
+        bool result = false;
+        int present24pos = dxl_read_word(24, PRESENT_POSITION);
+        int goal24pos = dxl_read_word(24, GOAL_POSITION);
+//      std::cout << "24: " << present24pos << " vs " << goal24pos << std::endl;
+        if (present24pos < (goal24pos-25) || present24pos > goal24pos+25) {
+                result = true;
+        }
+        return result;
 }
 
 double MotorController::getHeadAngle() {
-	int headPosition = readMotorPosition(23);
-	headPosition -= 2048; //Subtract the center position to get the relative location
-	double angle = headPosition * DEGREES_PER_POSITION * -1;
-	return angle;
+        int headPosition = readMotorPosition(23);
+        headPosition -= 2048; //Subtract the center position to get the relative location
+        double angle = headPosition * DEGREES_PER_POSITION * -1;
+        return angle;
 }
+
+void MotorController::setMotorPosition(int motor, int position, int speed=-1) {
+	if (speed != -1) {
+		dxl_write_word(motor, MOVING_SPEED, speed);
+	}
+	dxl_write_word(motor, GOAL_POSITION, position);
+}
+
+

@@ -17,11 +17,11 @@
 #include <cmath>
 
 //#define MOTIONS_PREPATH                       "/home/mul8/Documents/MU-L8_Motion_Files_limb_select/"
-#define TEMP_MOTION_FILE		"/home/unicorn/Documents/motions_text_file_select_limbs.mtn"
-#define TEMP_MOTION_QUEUE_FILE	"/home/unicorn/Documents/motions_queue_text_file.mtnq"
-#define ZERO_POSE_FILE			"/home/unicorn/Documents/MU-L8_Motion_Files_limb_select/zero_pose_file.txt"
-#define MOTIONS_PREPATH	 "/home/unicorn/Documents/MU-L8_Motion_Files_limb_select/"
-#define DATA_PREPATH	 "/home/unicorn/Dropbox/MUL8_onboard/Motion_testing/Position_testing/"
+#define TEMP_MOTION_FILE                "/home/mul8/Documents/motions_text_file_compliant_joints.mtn"
+#define TEMP_MOTION_QUEUE_FILE  "/home/mul8/Documents/motions_queue_text_file.mtnq"
+#define ZERO_POSE_FILE                  "/home/mul8/Documents/MU-L8_Motion_Files_compliant_joints/zero_pose_file.txt"
+#define MOTIONS_PREPATH  "/home/mul8/Documents/MU-L8_Motion_Files_compliant_joints/"
+#define DATA_PREPATH     "/home/mul8/Dropbox/MUL8_onboard/Motion_testing/Position_testing/"
 
 
 
@@ -40,7 +40,7 @@
 
 #define DEGREES_PER_POSITION    0.08789
 #define RADIANS_PER_DEGREE              0.01745
-#define P_FOR_PID       32      // Change this value to change the P value
+#define P_FOR_PID       15      // Change this value to change the P value
 #define NEW_RETURN_DELAY_TIME   10
 #define STATUS_RETURN                   1       // 0 returns nothing, 1 returns only read, 2 returns everything
 #define LEG_CUTOFF                              12
@@ -49,6 +49,10 @@
 #define TORQUE_ENABLE                   24
 #define MOVING_SPEED                    32
 #define GOAL_ACCELERATION               73
+#define PRESENT_LOAD                    40
+#define CW_LIMIT                        6
+#define CCW_LIMIT                       8
+
 
 #define DEFAULT_MOVING_SPEED    50
 #define DEFAULT_ACCELERATION    15
@@ -57,8 +61,8 @@
 #define PRESENT_POSITION                36
 #define RETURN_DELAY_TIME               5
 #define STATUS_RETURN_LEVEL             16
-#define MAX_TORQUE                              14
-#define TORQUE_LIMIT                    34
+#define DEFAULT_MAX_TORQUE              1023
+#define MAX_TORQUE                              34
 
 #define BYTE                                    1
 #define WORD                                    2
@@ -72,6 +76,11 @@
 #define MUL8_HEAD_UP_RIGHT				6
 #define MUL8_HEAD_DOWN_RIGHT			7
 #define MUL8_HEAD_CENTER				8
+
+#define MUL8_STEP_NULL					0
+#define MUL8_STEP_FINISHED				1
+#define MUL8_MOTION_FINISHED			2
+
 
 #define BATTERY_TIMEOUT                 20
 #define VOLTAGE_THRESHHOLD              105
@@ -145,155 +154,171 @@
 #define M23_CW  635
 #define M23_CCW 3360
 
-#define M24_CW  383
-#define M24_CCW 1017
+#define M24_CW  481
+#define M24_CCW 1063
 
 
 
 
 
 struct Motion {
-	std::string friendlyName;
-	std::vector<double> time;                                               //Array of times for the motions
-	std::vector<std::vector<int> > motorPositions;  //Array of motor positions for the motions
-	std::vector<std::vector<int> > motorVelocities; //Array of motor velocities for the motions
-	std::vector<std::vector<int> > motorIDs;                        //Array of motor IDs for motions.
+        std::string friendlyName;
+        std::vector<double> time;                                               //Array of times for the motions
+        std::vector<std::vector<int> > motorPositions;  //Array of motor positions for the motions
+        std::vector<std::vector<int> > motorVelocities; //Array of motor velocities for the motions
+        std::vector<std::vector<int> > motorIDs;                        //Array of motor IDs for motions.
+        std::vector<std::vector<int> > torqueReadings;
 
-	std::vector<int>  currPos;              //Array for holding potential new positions
-	std::vector<int>  recoverPos;           //Array for recovering a single step's positions
-	std::vector<int>  recoverVel;           //Array for recovering a single step's velocity
-	int recoverTime;                //recover a single step's time
 
-	int currentIndex;       //step index. 0-n                                                       //Integer marking the currently indexed step
-	int length;                     //number of steps in a motion                           //Integer representing the size of the arrays
-	int num_motors;
-	int limb_select;
-	//1--> ID 1-18  All
-	//2--> ID 1-12  Legs
-	//3--> ID 1-12(odd) right leg
-	//4--> ID 1-12(even) left leg
-	//5--> ID 13-18 arms
-	//6--> ID 13-18(odd) right arm
-	//7--> ID 13-18(even) left arm
-	//8--> ID 23-24 head
+        std::vector<int>  currPos;              //Array for holding potential new positions
+        std::vector<int>  recoverPos;           //Array for recovering a single step's positions
+        std::vector<int>  recoverVel;           //Array for recovering a single step's velocity
+        int recoverTime;                //recover a single step's time
+
+        int currentIndex;       //step index. 0-n                                                       //Integer marking the currently indexed step
+        int length;                     //number of steps in a motion                           //Integer representing the size of the arrays
+        int num_motors;
+        int limb_select;
+        std::vector<std::vector<int> > motorCompliance;
+                //1--> ID 1-18  All
+                //2--> ID 1-12  Legs
+                //3--> ID 1-12(odd) right leg
+                //4--> ID 1-12(even) left leg
+                //5--> ID 13-18 arms
+                //6--> ID 13-18(odd) right arm
+                //7--> ID 13-18(even) left arm
+                //8--> ID 23-24 head
 };
 
 struct MotionQueue {
-	std::string friendlyName; //name of the queue
-	std::vector<std::string>  motionList;   //names of the motions inside the queue
-	std::vector<double> pauseTime;
-	int currentIndex;       //index of the motionList vector
-	int length;                     //number of motions in the motionList vector
+        std::string friendlyName; //name of the queue
+        std::vector<std::string>  motionList;   //names of the motions inside the queue
+        std::vector<double> pauseTime;
+        int currentIndex;       //index of the motionList vector
+        int length;                     //number of motions in the motionList vector
 };
 
 class MotorController {
 private:
-	float timeSince(float);
-	void initializeMotions(void);
-	void initializeMotionQueues(void);
-	void initialize();
-	Motion getInitializedMotion(std::string, std::string);
-	MotionQueue getInitializedMotionQueue(std::string, std::string);
-	void changePID();
-	void setReturnDelayTime();
-	static void* executeMotion(void*);
+        float timeSince(double);
+        void initializeMotions(void);
+        void initializeMotionQueues(void);
+        void initialize();
+        Motion getInitializedMotion(std::string, std::string);
+        MotionQueue getInitializedMotionQueue(std::string, std::string);
+        void setReturnDelayTime();
+        double getUnixTime();
+
+        bool executing;
 public:
-	MotorController();
-	virtual ~MotorController();
+        MotorController();
+        virtual ~MotorController();
 
-	void init(void);
-	bool step(bool);
-	bool step(bool, unsigned long);
-	bool setMotion(std::string);
-	bool setMotionQueue(std::string);
-	void getZeroPose();
-	std::string getMotion(void);
-	void setStatusReturnLevel(int);
-	Motion getMotionFile();
-	std::string getCurrentMotionName(void);
+        int step(bool);
+        bool setMotion(std::string);
+        bool setMotionQueue(std::string);
+        void getZeroPose();
+        std::string getMotion(void);
+        void setStatusReturnLevel(int);
+        Motion getMotionFile();
+        std::string getCurrentMotionName(void);
 
 
-	void sendSyncWrite(std::vector<int>, int, int, std::vector<int>);
-	void executeNext(Motion);
-	void executePrevious(void);
+        void sendSyncWrite(std::vector<int>, int, int, std::vector<int>);
+        void executeNext(Motion);
+        void executePrevious(void);
 
-	bool incrementStep(void);
-	void incrementIndex(void);
-	void decrementIndex(void); // Decrement step index
-	bool incrementMotioninQueue(void);
+        bool incrementStep(void);
+        void incrementIndex(void);
+        void decrementIndex(void); // Decrement step index
+        bool incrementMotioninQueue(void);
 
-	void disableMotionExecution(void);
-	void enableMotionExecution(void);
+        void disableMotionExecution(void);
+        void enableMotionExecution(void);
 
-	void disableMotor(int);
-	void enableMotor(int);
-	void disableAllMotors(void);
-	void enableAllMotors(void);
-	void lockHead(void);
+        void disableMotor(int);
+        void enableMotor(int);
+        void disableAllMotors(void);
+        void enableAllMotors(void);
+        void lockHead(void);
 
-	void disableLegs(void);
-	void disableLeftLeg(void);
-	void disableRightLeg(void);
-	void disableSwayMotors(void);
-	void enableLegs(void);
-	void enableRightLeg(void);
-	void enableLeftLeg(void);
+        void disableLegs(void);
+        void disableLeftLeg(void);
+        void disableRightLeg(void);
+        void disableSwayMotors(void);
+        void enableLegs(void);
+        void enableRightLeg(void);
+        void enableLeftLeg(void);
 
-	void disableArms(void);
-	void disableLeftArm(void);
-	void disableRightArm(void);
-	void enableArms(void);
-	void enableRightArm(void);
-	void enableLeftArm(void);
+        void disableArms(void);
+        void disableLeftArm(void);
+        void disableRightArm(void);
+        void enableArms(void);
+        void enableRightArm(void);
+        void enableLeftArm(void);
 
-	int readMotorPosition(int);
-	int mainController(std::string in);
-	int convDegrees(int, int);
-	int getMotorPositionReadWord(int);
-	std::vector<int> getMotorPositionSyncRead(int);
-	void getCurrentPose();
-	int errorCheck(int[], int);
-	void getMirroredPose();
-	void setMirroredPose();
-	void mirrorCurrentMotion(void); //this function will take the mirror the current motion across the sagital plane and save it to a
-	//new file with the <current_motion_name>_m.mtn
+        void changePID(int, int);
+        int readMotorPosition(int);
+        int mainController(std::string in);
+        int convDegrees(int, int);
+        int getMotorPositionReadWord(int);
+        std::vector<int> getMotorPositionSyncRead(int);
+        void getCurrentPose(void);
+        void getTorqueReadings(void);
+        void printTorqueReadings(void);
+        int errorCheck(int[], int);
+        void getMirroredPose(void);
+        void setMirroredPose(void);
+        void mirrorCurrentMotion(void); //this function will take the mirror the current motion across the sagital plane and save it to a
+                                                                                //new file with the <current_motion_name>_m.mtn
 
-	void setTime(double); //takes new time input and passes it to editStep
-	void setPauseTime(double); //sets the pause time after a motion in the motion queue
-	void changeTime(double);//takes new time input for changing a step's time (without changing positions)
-	void editStep(Motion&, int, double, std::vector<int>); /*edit motion struct to replace a step and calc new vel with time input*/
-	void editStepTime(Motion&, int, double);//just change the time (speed) of a step
-	void insertStep(void);
-	void addLimbtoMotion(int); //this will resize the current motion to include a specific limb
-	void printMotion(int); //this will print the current motion in "motion reading" format so the user can paste them into a txt file.
-	void printMotionQueue(void);
-	void addMotionStep(void); //Add a step to the current motion
-	bool addMotion(std::string); // Add a new motion
-	void setLimbSelection(int);
-	bool addMotionQueue(std::string); //add a new motion queue to be filled with motion names
-	void addMotionToQueue(std::string);
+        void calibrateMotor(int, int);
+        void setMotorLimits(int, int, int);     //sets CCW and Cw limits for motor x
+        void setTime(double); //takes new time input and passes it to editStep
+        void setPauseTime(double); //sets the pause time after a motion in the motion queue
+        void changeTime(double);//takes new time input for changing a step's time (without changing positions)
+        void editStep(Motion&, int, double, std::vector<int>); /*edit motion struct to replace a step and calc new vel with time input*/
+        void editStepTime(Motion&, int, double);//just change the time (speed) of a step
+        void insertStep(void);
+        void addLimbtoMotion(int); //this will resize the current motion to include a specific limb
+        void printMotion(int); //this will print the current motion in "motion reading" format so the user can paste them into a txt file.
+        void printMotionQueue(void);
+        void addMotionStep(void); //Add a step to the current motion
+        bool addMotion(std::string); // Add a new motion
+        void setLimbSelection(int);
+        bool addMotionQueue(std::string); //add a new motion queue to be filled with motion names
+        void addMotionToQueue(std::string);
+        void setTorqueLimit(int, int);
+        void chooseCompliantLimb(int, int, int);
+        void setCompliantLimb(int);
 
-	void decrementQueueIndex(void);
-	void incrementQueueIndex(void);
-	void increaseQueueLength(void);
-	int getBoundedPosition(int, int);
-	int getQueueLength(void);
-	int getQueuePause(void);
+        void decrementQueueIndex(void);
+        void incrementQueueIndex(void);
+        void increaseQueueLength(void);
+        int getBoundedPosition(int, int);
+        int getQueueLength(void);
+        int getQueuePause(void);
 
 
 
-	void displayMotionStatus(void); //show the user which step we are on in a graphical manner
-	void recalculateCurrentMotionSpeeds(void);
-	void deleteCurrentStep(void);   //manipulate struct to delete step
+        void displayMotionStatus(void); //show the user which step we are on in a graphical manner
+        void recalculateCurrentMotionSpeeds(void);
+        void deleteCurrentStep(void);   //manipulate struct to delete step
 
 
-	void moveHead(int, int);
-	void stopHead(void);
-	bool headLeftRightIsMoving();
-	bool headUpDownIsMoving();
-	double getHeadAngle();
+        void init();
 
-	bool isExecuting();
+    	void moveHead(int, int);
+    	void stopHead(void);
+    	bool headLeftRightIsMoving();
+    	bool headUpDownIsMoving();
+    	double getHeadAngle();
+
+    	bool isExecuting();
+
+    	double getStepTime();
+    	void setMotorPosition(int, int, int);
+
 };
 
 #endif /* MOTORCONTROLLER_H_ */

@@ -94,33 +94,33 @@ int main(int argc, char *argv[])
   memcpy(&myData, buf, (size_t)numbytes);
 
   //variables for penatly states of each player
-  int player1penalty = myData.teams[0].players[0].penalty;
-  int player2penalty = myData.teams[0].players[1].penalty;
-  int player3penalty = myData.teams[0].players[2].penalty;
-  int player4penalty = myData.teams[0].players[3].penalty;
+//  int player1penalty = myData.teams[0].players[0].penalty;
+//  int player2penalty = myData.teams[0].players[1].penalty;
+//  int player3penalty = myData.teams[0].players[2].penalty;
+//  int player4penalty = myData.teams[0].players[3].penalty;
+//
+//  int t2player1penalty = myData.teams[1].players[0].penalty;
+//  int t2player2penalty = myData.teams[1].players[1].penalty;
+//  int t2player3penalty = myData.teams[1].players[2].penalty;
+//  int t2player4penalty = myData.teams[1].players[3].penalty;
+//
+//  //variable of package data
+//  int version = myData.version;
+//  int packetNumber = myData.packetNumber;
+//  int playersPerTeam = myData.playersPerTeam;
+//  int state = myData.state;
+//  int firstHalf = myData.firstHalf;
+//  int kickOffTeam = myData.kickOffTeam;
+//  int secondaryState = myData.secondaryState;
+//  int dropInTeam = myData.dropInTeam;
+//  int dropInTime = myData.dropInTime;
+//  int secsRemaining = myData.secsRemaining;
+//  int secondaryTime = myData.secondaryTime;
+//  int team1 = myData.teams[0].teamNumber;
+//  int team2 = myData.teams[1].teamNumber;
   
-  int t2player1penalty = myData.teams[1].players[0].penalty;
-  int t2player2penalty = myData.teams[1].players[1].penalty;
-  int t2player3penalty = myData.teams[1].players[2].penalty;
-  int t2player4penalty = myData.teams[1].players[3].penalty;
-
-  //variable of package data
-  int version = myData.version;
-  int packetNumber = myData.packetNumber;
-  int playersPerTeam = myData.playersPerTeam;
-  int state = myData.state;
-  int firstHalf = myData.firstHalf;
-  int kickOffTeam = myData.kickOffTeam;
-  int secondaryState = myData.secondaryState;
-  int dropInTeam = myData.dropInTeam;
-  int dropInTime = myData.dropInTime;
-  int secsRemaining = myData.secsRemaining;
-  int secondaryTime = myData.secondaryTime;
-  int team1 = myData.teams[0].teamNumber;
-  int team2 = myData.teams[1].teamNumber;
-  
-  mul8.setState(state);
-  mul8.step();
+//  mul8.setState(state);
+//  mul8.step();
 
   //displays packet info
 //  printf("Version: %u \n", myData.version);

@@ -22,8 +22,11 @@
 #include <time.h>
 #include <string>
 #include "MotorController.h"
+#include <string>
 
-//#include "MotorController.h"
+
+//#include "MotorControllerThread.h"
+
 
 #define LEFT						0
 #define RIGHT						1
@@ -58,12 +61,71 @@
 
 #define FLIPPED						1
 
+
+#define ODOMETRY_SSL_LONG_DISTANCE	22.5
+#define ODOMETRY_SSL_LONG_THETA		-21.8014
+#define ODOMETRY_SSL_LONG_TURN		5.6
+
+#define ODOMETRY_SSR_DISTANCE		6.14
+#define ODOMETRY_SSR_THETA			-26.5651
+#define ODOMETRY_SSR_TURN			5.3
+
+#define ODOMETRY_TL15_DISTANCE		0
+#define ODOMETRY_TL15_THETA			0
+#define ODOMETRY_TL15_TURN			10
+
+#define ODOMETRY_TL30_DISTANCE		0
+#define ODOMETRY_TL30_THETA			0
+#define ODOMETRY_TL30_TURN			19
+
+#define ODOMETRY_TL45_DISTANCE		-2
+#define ODOMETRY_TL45_THETA			0
+#define ODOMETRY_TL45_TURN			29
+
+#define ODOMETRY_TR15_DISTANCE		8.73
+#define ODOMETRY_TR15_THETA			66.3706
+#define ODOMETRY_TR15_TURN			-11.25
+
+#define ODOMETRY_TR30_DISTANCE		8.077
+#define ODOMETRY_TR30_THETA			68.1986
+#define ODOMETRY_TR30_TURN			-12.5
+
+#define ODOMETRY_TR45_DISTANCE		-1
+#define ODOMETRY_TR45_THETA			-1
+#define ODOMETRY_TR45_TURN			-30
+
+#define ODOMETRY_BACKWARD_DISTANCE	-2
+#define ODOMETRY_BACKWARD_THETA		0
+#define ODOMETRY_BACKWARD_TURN		2.5
+
+#define ODOMETRY_W0_M_DISTANCE		8
+#define ODOMETRY_W0_M_THETA			0
+#define ODOMETRY_W0_M_TURN			-3
+
+#define ODOMETRY_W1_DISTANCE		10
+#define ODOMETRY_W1_THETA			0
+#define ODOMETRY_W1_TURN			0
+
+#define ODOMETRY_W2_DISTANCE		10
+#define ODOMETRY_W2_THETA			0
+#define ODOMETRY_W2_TURN			0
+
+#define ODOMETRY_KICKR_DISTANCE		3
+#define ODOMETRY_KICKR_THETA		180
+#define ODOMETRY_KICKR_TURN			0
+
+#define ODOMETRY_KICKL_DISTANCE		0
+#define ODOMETRY_KICKL_THETA		0
+#define ODOMETRY_KICKL_TURN			-2
+
 using namespace cv;
 
 class Vision {
 public:
 	Vision();
 	virtual ~Vision();
+	void startMotorController();
+	void stopMotorController();
 	void init(MotorController&);
 //	bool seesGoal();
 	void setAction(int);
@@ -84,8 +146,16 @@ public:
 	double getRobotTheta();
 	double getDistance(Point, Point);
 	int getFrequency();
+	bool motorControllerIsRunning();
+	int getAction();
+	bool setMotion(std::string);
+	Mat grabFrame();
+	double getVisionTime();
+	double getMotorsTime();
+	std::string getMotionRequest();
 
 private:
+	double getUnixTime();
 	Mat GetThresholdedImage(Mat);
 	void setwindowSettings();
 	Mat preprocess(Mat);
@@ -115,6 +185,12 @@ private:
 	void search_for_both(Mat);
 	void search_for_goal(Mat);
 	void search_for_ball(Mat);
+
+	static void executeMotion(Vision*);
+
+	MotorController* motorController;
+
+	static bool motorControllerIsExecuting;
 };
 
 #endif /* VISION_H_ */
