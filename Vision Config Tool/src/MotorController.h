@@ -299,7 +299,7 @@ public:
         int getQueueLength(void);
         int getQueuePause(void);
 
-
+        void correctBalance(int);
 
         void displayMotionStatus(void); //show the user which step we are on in a graphical manner
         void recalculateCurrentMotionSpeeds(void);

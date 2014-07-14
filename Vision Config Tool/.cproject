@@ -30,7 +30,7 @@
 									<listOptionValue builtIn="false" value="/usr/include/X11"/>
 									<listOptionValue builtIn="false" value="/usr/local/include/opencv"/>
 									<listOptionValue builtIn="false" value="/opt/ros/groovy/include"/>
-									<listOptionValue builtIn="false" value="/home/unicorn/Software/DXL_SDK_LINUX_v1_01/include"/>
+									<listOptionValue builtIn="false" value="/home/mul8/DXL_SDK_LINUX_v1_01/include"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.include.files.456957357" name="Include files (-include)" superClass="gnu.cpp.compiler.option.include.files"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.131959194" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
@@ -44,7 +44,7 @@
 							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.exe.debug.431055435" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.exe.debug">
 								<option id="gnu.cpp.link.option.paths.48517530" name="Library search path (-L)" superClass="gnu.cpp.link.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="/opt/ros/groovy/lib"/>
-									<listOptionValue builtIn="false" value="/home/unicorn/Software/DXL_SDK_LINUX_v1_01/lib"/>
+									<listOptionValue builtIn="false" value="/home/mul8/DXL_SDK_LINUX_v1_01/lib"/>
 								</option>
 								<option id="gnu.cpp.link.option.libs.752952671" name="Libraries (-l)" superClass="gnu.cpp.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="opencv_core"/>
@@ -71,9 +71,6 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="cdt.managedbuild.config.gnu.exe.debug.1430083732.1972080643" name="myServer.cpp" rcbsApplicability="disable" resourcePath="src/myServer.cpp" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341.132896613">
-						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341.132896613" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.exe.debug.2039089341"/>
-					</fileInfo>
 					<sourceEntries>
 						<entry excluding="src/myServer.cpp|src/main.cpp|src/GoalAndBallDetect.cpp|src/DisplayImage.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>

@@ -7,6 +7,7 @@
 
 /*Belongs to MotionPlanner*/
 #include "MotorController.h"
+#include "balanceServer.h"
 #include <string>
 #include <sstream>
 #include <stdlib.h>
@@ -21,6 +22,7 @@
 
 #include <dynamixel.h>
 
+balanceServer balance_server;
 bool motionExecutionDisabled= false;
 
 double lastClock, batteryClock;
@@ -54,6 +56,10 @@ double batteryLevel= 0.00;
 int temperature= 0;
 int checkBattery;
 int result;
+
+int balance_updates=0;
+double balance_slowdown= 0;
+int previous_balance= 10;
 
 std::vector<int> motors;
 std::vector<int> data;
@@ -499,103 +505,121 @@ float MotorController::timeSince(double lastClock) {
  *      called from MotorController.step(false)
  */
 void MotorController::executeNext(Motion motion) {
-        std::vector<int> tempMotors;
-        tempMotors.resize(motion.num_motors);//will take >0 positions from here
+	std::vector<int> tempMotors;
+	tempMotors.resize(motion.num_motors);//will take >0 positions from here
 
-        int active_joints= motion.num_motors;   //default number of motors used for this motion
-        int temp_counter=0;
-
-
-        // Let the user know that the next step is being executed
-        if(!motionExecutionDisabled){   //is robot in passive or active mode
-
-                //list of the motor IDs to which the data will be written for this motion
-                for(int j= 0; j<motion.num_motors; j++){
-
-                        //if the goal position is 0 that means we don't execute it-->exclude from motors[]
-                        if(motion.motorPositions[motion.currentIndex][j]>0){
-                                //std::cout<<" this is step "<<motion.currentIndex<<std::endl;
-                                tempMotors[j]= motion.motorIDs[motion.currentIndex][j];
-                        }
-                        //else, the position was a passive one for this joint--> decrement active joints
-                        else{
-                                active_joints--;
-                        }
-                }
-
-                for(int j= 0; j<motion.num_motors; j++){
-
-                        if(tempMotors[j]>0){
-                                motors[temp_counter]= tempMotors[j];
-                                temp_counter++;
-                        }
-                }
-                motors.resize(active_joints);
+	int active_joints= motion.num_motors;	//default number of motors used for this motion
+	int temp_counter=0;
 
 
-                if (motion.currentIndex == 0)
-                {
-                        for (int i = 0; i < motion.num_motors; i++) {
-                                data[i] = LOW_ACCELERATION;
-                        }
-                        sendSyncWrite(motors,  GOAL_ACCELERATION, BYTE, data);
-                }
-                else if (motion.currentIndex == 1)
-                {
-                        for (int i = 0; i < motion.num_motors; i++) {
-                                data[i] = DEFAULT_ACCELERATION;
-                        }
-                        sendSyncWrite(motors, GOAL_ACCELERATION, WORD, data);
-                }
+	// Let the user know that the next step is being executed
+	if(!motionExecutionDisabled){	//is robot in passive or active mode
+
+		//list of the motor IDs to which the data will be written for this motion
+		for(int j= 0; j<motion.num_motors; j++){
+
+			//if the goal position is 0 that means we don't execute it-->exclude from motors[]
+			if(motion.motorPositions[motion.currentIndex][j]>0){
+				//std::cout<<" this is step "<<motion.currentIndex<<std::endl;
+				tempMotors[j]= motion.motorIDs[motion.currentIndex][j];
+			}
+			//else, the position was a passive one for this joint--> decrement active joints
+			else{
+				active_joints--;
+			}
+		}
+
+		for(int j= 0; j<motion.num_motors; j++){
+
+			if(tempMotors[j]>0){
+				motors[temp_counter]= tempMotors[j];
+				temp_counter++;
+			}
+		}
+		motors.resize(active_joints);
 
 
-                for (int i = 0; i < motion.num_motors; i++) {
-                        if(motion.currentIndex==0){
+		if (motion.currentIndex == 0)
+		{
+			for (int i = 0; i < motion.num_motors; i++) {
+				data[i] = LOW_ACCELERATION;
+			}
+			sendSyncWrite(motors,  GOAL_ACCELERATION, BYTE, data);
+		}
+		else if (motion.currentIndex == 1)
+		{
+			for (int i = 0; i < motion.num_motors; i++) {
+				data[i] = DEFAULT_ACCELERATION;
+			}
+			sendSyncWrite(motors, GOAL_ACCELERATION, WORD, data);
+		}
 
-                                int finalPos= motion.motorPositions[0][i];
-                                data[i]= SPEED_CONSTANT*abs(dxl_read_word(i+1,PRESENT_POSITION)-finalPos)/motion.time[0];
 
-                        }
-//                      else{
-//                              data[i]= SPEED_CONSTANT*abs(dxl_read_word(i+1,PRESENT_POSITION)-motion.motorPositions[currMo.currentIndex][i])/currMo.time[currMo.currentIndex];
-//
-//                      }
-                        else{
-                                data[i] = motion.motorVelocities[motion.currentIndex][i];
-                        }
-                }
-                sendSyncWrite(motors,  MOVING_SPEED, WORD, data);
+		if(motion.friendlyName == "Tl15" || motion.friendlyName == "Tl30" || motion.friendlyName == "Tl45" || motion.friendlyName == "Tr15" || motion.friendlyName == "Tr30" || motion.friendlyName == "Tr45" ){
+			if(motion.currentIndex==4){//this is the part when it falls back to recover after making the turn
 
-                //TODO for setting compliancy in the motors
+				for(int j=0; j<motion.num_motors; j++){
+					data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
+				}
+			}
+		}
+		else if(motion.currentIndex==0){
+			std::cout<<"#####SLOW DOWN: "<<balance_slowdown<<std::endl;
 
-                for (int i = 0; i < motion.num_motors; i++) {
-//                      if(currMo.currentIndex==0){
-//                      //try changing the torque back to something less abrupt
-//                      }
-                        data[i] = motion.motorCompliance[motion.currentIndex][i];
-//                      std::cout<<"Setting Motor "<<motion.motorIDs[motion.currentIndex][i]<<" to be compliant. "<<motion.motorCompliance[motion.currentIndex][i]<< " of 1023"<<std::endl;
+			for (int i = 0; i < motion.num_motors; i++) {
 
-                }
-                sendSyncWrite(motors, MAX_TORQUE, WORD, data);
+				int finalPos= motion.motorPositions[0][i];
+				data[i]= SPEED_CONSTANT*abs(dxl_read_word(i+1,PRESENT_POSITION)-finalPos)/(motion.time[0]);//+balance_slowdown); //find proper motor speeds to meet the time of the first step+ balance offset
+			}
+			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
+		}
 
-                // TODO Change this so it includes the whole body
+		else if(motion.currentIndex==1){
 
-                for (int i = 0; i < motion.num_motors; i++) {
-                        data[i] = motion.motorPositions[motion.currentIndex][i];
+			for(int j=0; j<motion.num_motors; j++){
+				data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
+			}
+		}
 
-                }
-                sendSyncWrite(motors,  GOAL_POSITION, WORD, data);
-        }
+		else{
+			for (int i = 0; i < motion.num_motors; i++) {
 
-        for(int i= 0; i < active_joints; i++ ){
-                if(i==0){
-//                      std::cout<<"\n"<< motors.size() <<" ACTIVE JOINTS! "<<std::endl;
-                }
-//                std::cout<<" "<<motors[i];
-        }
-        std::cout<<"\n\n";
-        // Reset the clock
-        lastClock = getUnixTime();
+				data[i] = motion.motorVelocities[motion.currentIndex][i];
+			}
+
+		}
+		sendSyncWrite(motors,  MOVING_SPEED, WORD, data);
+
+		//TODO for setting compliancy in the motors
+
+		for (int i = 0; i < motion.num_motors; i++) {
+//			if(currMo.currentIndex==0){
+//			//try changing the torque back to something less abrupt
+//			}
+			data[i] = motion.motorCompliance[motion.currentIndex][i];
+//			std::cout<<"Setting Motor "<<motion.motorIDs[motion.currentIndex][i]<<" to be compliant. "<<motion.motorCompliance[motion.currentIndex][i]<< " of 1023"<<std::endl;
+
+		}
+		sendSyncWrite(motors, MAX_TORQUE, WORD, data);
+
+		// TODO Change this so it includes the whole body
+
+		for (int i = 0; i < motion.num_motors; i++) {
+			data[i] = motion.motorPositions[motion.currentIndex][i];
+
+		}
+		sendSyncWrite(motors,  GOAL_POSITION, WORD, data);
+	}
+
+	for(int i= 0; i < active_joints; i++ ){
+		if(i==0){
+//			std::cout<<"\n"<< motors.size() <<" ACTIVE JOINTS! "<<std::endl;
+		}
+		std::cout<<" "<<motors[i];
+	}
+	std::cout<<"\n\n";
+	// Reset the clock
+	lastClock = clock();
 }
 
 
@@ -703,6 +727,7 @@ int MotorController::step(bool isFalling) {
                                 std::cout <<"\nStep "<< currMo.currentIndex<< " of "<< currMo.length-1<< " should take " << currMo.time[currMo.currentIndex] << " seconds: " <<std::endl;
 
                                 // Execute the next step
+                                balance_updates=1;
                                 executeNext(currMo);
                                 //getTorqueReadings();
                                 // Increment the motion counter
@@ -711,10 +736,13 @@ int MotorController::step(bool isFalling) {
                         }
 
                         // Return the correct value;
-                        std::cout << "Returning " << returnVar << " from MotorController" << std::endl;
+                        //std::cout << "Returning " << returnVar << " from MotorController" << std::endl;
                         return returnVar;
                 }
-
+        		if(balance_updates>0){
+        		correctBalance(balance_server.checkBalance());
+        		balance_updates--;
+        		}
                 return returnVar;
 
         }
@@ -722,6 +750,60 @@ int MotorController::step(bool isFalling) {
 
 double MotorController::getStepTime() {
         return currMo.time[currMo.currentIndex-1];
+}
+
+void MotorController::correctBalance(int y_accel){
+	balance_slowdown= 0;
+	//	previous_balance= y_accel;
+
+	if(y_accel<5 && y_accel>14){
+		//robot is falling
+		//step(true); disable all motors or set torque to 0 for all, let robot fall
+	}
+	else if(y_accel== 0){//server not working
+
+		return;
+	}
+
+	else{
+
+		if(y_accel> 7 && y_accel<12){	//robot is relatively balanced
+			//do nothing?
+			previous_balance=y_accel;
+		}
+		//if leaning to the right, incrementally adjust balance
+		else if(previous_balance<=10 ){
+			//			printf("got to right side");
+			if(y_accel<8){
+				previous_balance=y_accel;
+				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
+					balance_slowdown=.2;
+				}
+				else{
+					balance_slowdown=.6;
+				}
+
+			}
+
+		}
+		//if leaning to the left
+		else if(previous_balance>=10 ){
+			//			printf("got to left side");
+			if(y_accel>11){
+
+				previous_balance=y_accel;
+				if(currentMotion=="Tl15" || currentMotion=="Tl30" || currentMotion=="Tl45"){
+					balance_slowdown=.2;
+				}
+				else{
+					balance_slowdown=.6;
+				}
+
+			}
+
+		}
+
+	}
 }
 
 
