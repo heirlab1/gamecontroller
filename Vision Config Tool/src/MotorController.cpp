@@ -566,7 +566,7 @@ void MotorController::executeNext(Motion motion) {
 				int finalPos= motion.motorPositions[0][i];
 				data[i]= SPEED_CONSTANT*abs(dxl_read_word(i+1,PRESENT_POSITION)-finalPos)/(motion.time[0]);//+balance_slowdown); //find proper motor speeds to meet the time of the first step+ balance offset
 			}
-			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
+//			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
 		}
 
 		else if(motion.currentIndex==1){
@@ -576,19 +576,20 @@ void MotorController::executeNext(Motion motion) {
 			for(int j=0; j<motion.num_motors; j++){
 				data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
 			}
-			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
+//			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
 
 		}
-		else if(motion.currentIndex==4){//this is the part when it falls back to recover after making the turn
-			if(currentMotion == "Tl15" || currentMotion == "Tl30" || currentMotion == "Tl45" || currentMotion == "Tr15" || currentMotion == "Tr30" || currentMotion == "Tr45" ){
-
-				std::cout<<"###  SLOW DOWN TURN: "<<balance_slowdown<<std::endl;
-
-				for(int j=0; j<motion.num_motors; j++){
-					data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
-				}
-			}
-		}
+//		else if(motion.currentIndex==4){//this is the part when it falls back to recover after making the turn
+//			if(currentMotion == "Tl15" || currentMotion == "Tl30" || currentMotion == "Tl45" || currentMotion == "Tr15" || currentMotion == "Tr30" || currentMotion == "Tr45" ){
+//
+//				std::cout<<"###  SLOW DOWN TURN: "<<balance_slowdown<<std::endl;
+//
+//				for(int j=0; j<motion.num_motors; j++){
+//					data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
+//				}
+////				balance_slowdown=0;
+//			}
+//		}
 
 		else{
 			for (int i = 0; i < motion.num_motors; i++) {
@@ -628,8 +629,9 @@ void MotorController::executeNext(Motion motion) {
 	}
 	std::cout<<"\n\n";
 	// Reset the clock
-	lastClock = getUnixTime();
+	lastClock = clock();
 }
+
 
 
 
@@ -762,57 +764,58 @@ double MotorController::getStepTime() {
 }
 
 void MotorController::correctBalance(int y_accel){
-	balance_slowdown= 0;
+//	balance_slowdown= 0;
 	//	previous_balance= y_accel;
 
-	if(y_accel<5 && y_accel>14){
-		//robot is falling
-		//step(true); disable all motors or set torque to 0 for all, let robot fall
-	}
-	else if(y_accel== 0){//server not working
+	if(y_accel== 0){//server not working
 
 		return;
 	}
+	else if(y_accel>0){
+		if(y_accel<5 || y_accel>14){
+			//robot is falling
+			//step(true); disable all motors or set torque to 0 for all, let robot fall
+		}
 
-	else{
-
-		if(y_accel> 8 && y_accel<12){	//robot is relatively balanced
+		else if(y_accel> 7 && y_accel<13){	//robot is relatively balanced
 			//do nothing?
-			previous_balance=y_accel;
+//			previous_balance=y_accel;
+			balance_slowdown=0;
 		}
 		//if leaning to the right, incrementally adjust balance
-		else if(previous_balance<=10 ){
+//		else if(previous_balance<=10 ){
 			//			printf("got to right side");
-			if(y_accel<9){
-				previous_balance=y_accel;
-				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
-					balance_slowdown=.2;
-				}
-				else{
-					balance_slowdown=.6;
-				}
-
+			if(y_accel<8){
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				balance_slowdown=0;//.6;
 			}
+			//
+			//			}
 
-		}
+//		}
 		//if leaning to the left
-		else if(previous_balance>=10 ){
+//		else if(previous_balance>=10 ){
 			//			printf("got to left side");
 			if(y_accel>11){
-
-				previous_balance=y_accel;
-				if(currentMotion=="Tl15" || currentMotion=="Tl30" || currentMotion=="Tl45"){
-					balance_slowdown=.2;
-				}
-				else{
-					balance_slowdown=.6;
-				}
+				//
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tl15" || currentMotion=="Tl30" || currentMotion=="Tl45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				balance_slowdown=0;//.6;
+				//				}
 
 			}
 
-		}
-
+//		}
 	}
+
+
 }
 
 /**
