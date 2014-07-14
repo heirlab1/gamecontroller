@@ -63,13 +63,15 @@ bool MUL8::search() {
 				done = true;
 			}
 
-			waitKey(1);
+			int c = waitKey(1);
 
-	//		if ((char)c == 27) {
-	//			done = true;
-	//		}
+			if ((char)c == 27) {
+				done = true;
+			}
 
 			vis.nextFrame();
+
+			done = true;
 		}
 		// Robot knows where both the ball and the field are
 	//	std::cout << "Vision knows where it is, and where the ball is.\n" <<
@@ -81,6 +83,8 @@ bool MUL8::search() {
 	//			<< std::endl;
 	//	std::cout << "The ball is located: (" << vis.getBallX() << ", "
 	//			<< vis.getBallY() << ")" << std::endl;
+
+		return done;
 }
 /*
  * This function returns true when it is near the ball, or false if it loses track of the ball.
@@ -91,15 +95,15 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 	std::cout << "Walking towards the ball time" << std::endl;
 
 	vis.setAction(CENTER_BALL);
-	double temp_time = getUnixTime();
+//	double temp_time = getUnixTime();
 	// Search for ball for 6 seconds
 //	while ((getUnixTime()-temp_time) < 6) {
 //		vis.nextFrame();
 //	}
-	temp_time = getUnixTime();
+//	temp_time = getUnixTime();
 
 
-	double waitTimer = getUnixTime();
+//	double waitTimer = getUnixTime();
 	// TODO I forgot how the robot's X and Y are oriented, might have to change some vision code if this doesn't work
 	//	while (!done) {
 
@@ -147,7 +151,7 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			motorController.setMotion("W0_m");
 			vis.updateRobotPosition(ODOMETRY_W0_M_DISTANCE, ODOMETRY_W0_M_THETA);
 			vis.updateRobotTheta(ODOMETRY_W0_M_TURN);
-			waitTimer = getUnixTime();
+//			waitTimer = getUnixTime();
 		}
 		else if (currMo == "W0_m"/* && ((getUnixTime()-waitTimer) > 1)*/) {
 			motorController.setMotion("W2");
