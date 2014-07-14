@@ -61,7 +61,7 @@ int balanceServer::checkBalance(){
 		//printf("Server-Packet contains \"%s\"\n", sensor_buf);
 		char *pNext;
 		int num = strtol(sensor_buf,&pNext, 10);
-		printf("%Balance= d\n", num);
+		printf("Balance= %d\n", num);
 
 		//##########close socket################
 

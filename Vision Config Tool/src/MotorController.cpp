@@ -776,14 +776,14 @@ void MotorController::correctBalance(int y_accel){
 
 	else{
 
-		if(y_accel> 7 && y_accel<12){	//robot is relatively balanced
+		if(y_accel> 8 && y_accel<12){	//robot is relatively balanced
 			//do nothing?
 			previous_balance=y_accel;
 		}
 		//if leaning to the right, incrementally adjust balance
 		else if(previous_balance<=10 ){
 			//			printf("got to right side");
-			if(y_accel<8){
+			if(y_accel<9){
 				previous_balance=y_accel;
 				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
 					balance_slowdown=.2;
@@ -814,7 +814,6 @@ void MotorController::correctBalance(int y_accel){
 
 	}
 }
-
 
 /**
  * Motion is set here from Main
