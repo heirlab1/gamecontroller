@@ -18,16 +18,18 @@
 #define MUL8_ACTION_SEARCH				1
 #define MUL8_ACTION_WALK_TOWARDS_BALL	2
 #define MUL8_ACTION_ALIGN_TO_KICK		3
+#define MUL8_ACTION_GET_BEHIND_BALL		4
+#define MUL8_ACTION_CHECK_LOCATION		5
 
 class MUL8 {
-	void search();
-	void walkTowardsBall(int);
-	void checkLocation();
+	bool search();
+	bool walkTowardsBall(int);
+	bool checkLocation();
 	void turn(int);
 	void doMotion();
 	double getUnixTime();
-	void getBehindBall();
-	void alignToKick();
+	bool getBehindBall();
+	bool alignToKick();
 	void init();
 	void ready();
 	void set();
