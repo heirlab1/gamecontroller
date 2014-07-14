@@ -18,9 +18,9 @@ int lowerH=22;//13;//15;//5;//15;//15;//11;//20;//10;//18;
 int lowerS=191;//77;//160;//202;//134;//202;//165;//100;//227;//158;
 int lowerV=146;//172;//83;//255;//144;//255;//145;//100;//141;//80;
 
-int ballLowerH = 115;//0;//158;//0;//157;//148;//0;//0;//0;//0;//0;
-int ballLowerS = 145;//177;//72;//218;//133;//58;//187;//137;//189;//31;//0;
-int ballLowerV = 144;//194;//102;//96;//85;//190;//164;//21;//158;//0;
+int ballLowerH = 0;//115;//0;//158;//0;//157;//148;//0;//0;//0;//0;//0;
+int ballLowerS = 197;//145;//177;//72;//218;//133;//58;//187;//137;//189;//31;//0;
+int ballLowerV = 0;//144;//194;//102;//96;//85;//190;//164;//21;//158;//0;
 // BALL LOWER
 //0
 //189
@@ -49,9 +49,9 @@ int upperH=42;//60;//47;//47;//47;//47;//30;//30;//31;//23;
 int upperS=255;//255;//255;//255;//255;//255;//250;//255;//256;//220;
 int upperV=255;//255;//255;//255;//175;//255;//255;//255;//256;//178;
 
-int ballUpperH = 255;//83;//203;//5;//187;//255;//13;//21;//13;//256;//255;
-int ballUpperS = 255;//255;//255;//253;//192;//255;//255;//256;//255;//108;//255;
-int ballUpperV = 255;//255;//255;//222;//141;//255;//255;//241;//255;//256;//255;
+int ballUpperH = 10;//255;//83;//203;//5;//187;//255;//13;//21;//13;//256;//255;
+int ballUpperS = 255;//255;//255;//255;//253;//192;//255;//255;//256;//255;//108;//255;
+int ballUpperV = 255;//255;//255;//255;//222;//141;//255;//255;//241;//255;//256;//255;
 
 int kernel_size_erode = 4;
 
@@ -113,7 +113,7 @@ void Vision::init(MotorController& controller) {
 	motorController = &controller;
 	cap = setup();
 	setwindowSettings();
-//	    calibrateThresholds();
+//	calibrateThresholds();
 
 	// Initialize the arrays
 	for (int i = 0; i < history_size; i++) {
@@ -1635,22 +1635,22 @@ void Vision::center_goal(Mat frame) {
 
 	// Determine how MUL8 needs to move its head in order to get the ball in the center of the frame
 	if (boundRect.center.x >= 0) {
-		if (boundRect.center.x < /*213*/310) {
-			if (boundRect.center.y < /*160*/230) {
+		if (boundRect.center.x < 213/*310*/) {
+			if (boundRect.center.y < 160/*230*/) {
 				motorController->moveHead(MUL8_HEAD_UP_RIGHT, 25);
 			}
-			else if (boundRect.center.y > /*320*/250) {
+			else if (boundRect.center.y > 320/*250*/) {
 				motorController->moveHead(MUL8_HEAD_DOWN_RIGHT, 25);
 			}
 			else {
 				motorController->moveHead(MUL8_HEAD_RIGHT, 25);
 			}
 		}
-		else if (boundRect.center.x > /*427*/330) {
-			if (boundRect.center.y < /*160*/230) {
+		else if (boundRect.center.x > 427/*330*/) {
+			if (boundRect.center.y < 160/*230*/) {
 				motorController->moveHead(MUL8_HEAD_UP_LEFT, 25);
 			}
-			else if (boundRect.center.y > /*320*/250) {
+			else if (boundRect.center.y > 320/*250*/) {
 				motorController->moveHead(MUL8_HEAD_DOWN_LEFT, 25);
 			}
 			else {
@@ -1658,10 +1658,10 @@ void Vision::center_goal(Mat frame) {
 			}
 		}
 		else {
-			if (boundRect.center.y < /*160*/230) {
+			if (boundRect.center.y < 160/*230*/) {
 				motorController->moveHead(MUL8_HEAD_UP, 25);
 			}
-			else if (boundRect.center.y > /*320*/250) {
+			else if (boundRect.center.y > 320/*250*/) {
 				motorController->moveHead(MUL8_HEAD_DOWN, 25);
 			}
 			else {
@@ -1689,7 +1689,7 @@ void Vision::center_ball(Mat frame) {
 	if (centerRec.x >= 0) {
 		// Calculate the moving speed based on the distance between the center of the ball and the center of the screen
 		int speed = (int)getDistance(Point(centerRec.x, centerRec.y), Point(320, 240));
-		speed /= 3;
+		speed /= 7;
 
 		if (centerRec.x < /*213*/310) {
 			if (centerRec.y < /*160*/230) {

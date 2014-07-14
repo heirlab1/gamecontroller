@@ -45,43 +45,42 @@ MUL8::~MUL8() {
 }
 
 bool MUL8::search() {
-	bool result = false;
+	bool position = false;
+		bool done = false;
 
-	vis.setAction(SEARCH_FOR_GOAL);
-	//	vis.setAction(CENTER_BALL);
+		vis.setAction(SEARCH_FOR_GOAL);
+		//	vis.setAction(CENTER_BALL);
 
-	vis.nextFrame();
+		while (!done) {
+			if (!position && vis.knowsRobotPosition()) {
+				vis.setAction(SEARCH_FOR_BALL);
+				std::cout << "Searching for Ball" << std::endl;
+				position = true;
+			}
+			else if (vis.knowsBallPosition()) {
+				std::cout << "Searching for both" << std::endl;
+				setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
+				done = true;
+			}
 
-	//	while (!done) {
-	if (!mul8_knows_position && vis.knowsRobotPosition()) {
-		vis.setAction(SEARCH_FOR_BALL);
-		std::cout << "Searching for Ball" << std::endl;
-		mul8_knows_position = true;
-	}
-	else if (vis.knowsBallPosition()) {
-		setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
-		result = true;
-		std::cout << "Vision knows where it is, and where the ball is.\n" <<
-				"We would now normally wait for the robot to move," <<
-				" and then update our world." << std::endl;
-		std::cout << std::endl;
-		std::cout << "The robot is located: (" << vis.getRobotX() <<
-				", " << vis.getRobotY() << ") @ " << vis.getRobotTheta()
-				<< std::endl;
-		std::cout << "The ball is located: (" << vis.getBallX() << ", "
-				<< vis.getBallY() << ")" << std::endl;
-	}
+			waitKey(1);
 
-	int c = waitKey(1);
+	//		if ((char)c == 27) {
+	//			done = true;
+	//		}
 
-	if ((char)c == 27) {
-		setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
-		result = true;
-	}
-
-	return result;
-	//	}
-	// Robot knows where both the ball and the field are
+			vis.nextFrame();
+		}
+		// Robot knows where both the ball and the field are
+	//	std::cout << "Vision knows where it is, and where the ball is.\n" <<
+	//			"We would now normally wait for the robot to move," <<
+	//			" and then update our world." << std::endl;
+	//	std::cout << std::endl;
+	//	std::cout << "The robot is located: (" << vis.getRobotX() <<
+	//			", " << vis.getRobotY() << ") @ " << vis.getRobotTheta()
+	//			<< std::endl;
+	//	std::cout << "The ball is located: (" << vis.getBallX() << ", "
+	//			<< vis.getBallY() << ")" << std::endl;
 }
 /*
  * This function returns true when it is near the ball, or false if it loses track of the ball.
@@ -94,9 +93,9 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 	vis.setAction(CENTER_BALL);
 	double temp_time = getUnixTime();
 	// Search for ball for 6 seconds
-	while ((getUnixTime()-temp_time) < 6) {
-		vis.nextFrame();
-	}
+//	while ((getUnixTime()-temp_time) < 6) {
+//		vis.nextFrame();
+//	}
 	temp_time = getUnixTime();
 
 
@@ -150,12 +149,15 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			vis.updateRobotTheta(ODOMETRY_W0_M_TURN);
 			waitTimer = getUnixTime();
 		}
-		else if (currMo == "W0_m" && ((getUnixTime()-waitTimer) > 1)) {
+		else if (currMo == "W0_m"/* && ((getUnixTime()-waitTimer) > 1)*/) {
 			motorController.setMotion("W2");
 			vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
 			vis.updateRobotTheta(ODOMETRY_W2_TURN);
 			std::cout << "Position W2" << std::endl;
 		}
+//		else if (currMo == "W0_m") {
+//
+//		}
 		else if (currMo == "W1") {
 			motorController.setMotion("W2");
 			vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
@@ -169,6 +171,7 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			std::cout << "Position W1" << std::endl;
 		}
 		else {
+			std::cout << "Old motion was " << currMo << std::endl;
 			motorController.setMotion("Wi");
 			// No need to update odometry, as no foot movements are involved
 			std::cout << "Position Wi" << std::endl;
@@ -442,6 +445,8 @@ void MUL8::init() {
 		motorController.init();
 		vis.init(motorController);
 		motorController.setMotion("Wi");
+		motorController.step(false);
+		vis.setAction(SEARCH_FOR_GOAL);
 		MUL8_initialized = true;
 	}
 }

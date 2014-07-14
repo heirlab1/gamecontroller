@@ -504,6 +504,10 @@ float MotorController::timeSince(double lastClock) {
  *  Code to actually execute the next step
  *      called from MotorController.step(false)
  */
+/**
+ *  Code to actually execute the next step
+ *	called from MotorController.step(false)
+ */
 void MotorController::executeNext(Motion motion) {
 	std::vector<int> tempMotors;
 	tempMotors.resize(motion.num_motors);//will take >0 positions from here
@@ -555,16 +559,7 @@ void MotorController::executeNext(Motion motion) {
 		}
 
 
-		if(motion.friendlyName == "Tl15" || motion.friendlyName == "Tl30" || motion.friendlyName == "Tl45" || motion.friendlyName == "Tr15" || motion.friendlyName == "Tr30" || motion.friendlyName == "Tr45" ){
-			if(motion.currentIndex==4){//this is the part when it falls back to recover after making the turn
-
-				for(int j=0; j<motion.num_motors; j++){
-					data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
-				}
-			}
-		}
-		else if(motion.currentIndex==0){
-			std::cout<<"#####SLOW DOWN: "<<balance_slowdown<<std::endl;
+		if(motion.currentIndex==0){
 
 			for (int i = 0; i < motion.num_motors; i++) {
 
@@ -576,8 +571,22 @@ void MotorController::executeNext(Motion motion) {
 
 		else if(motion.currentIndex==1){
 
+			std::cout<<"### SLOW DOWN LEAN: "<<balance_slowdown<<std::endl;
+
 			for(int j=0; j<motion.num_motors; j++){
 				data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
+			}
+			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
+
+		}
+		else if(motion.currentIndex==4){//this is the part when it falls back to recover after making the turn
+			if(currentMotion == "Tl15" || currentMotion == "Tl30" || currentMotion == "Tl45" || currentMotion == "Tr15" || currentMotion == "Tr30" || currentMotion == "Tr45" ){
+
+				std::cout<<"###  SLOW DOWN TURN: "<<balance_slowdown<<std::endl;
+
+				for(int j=0; j<motion.num_motors; j++){
+					data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
+				}
 			}
 		}
 
@@ -739,10 +748,10 @@ int MotorController::step(bool isFalling) {
                         //std::cout << "Returning " << returnVar << " from MotorController" << std::endl;
                         return returnVar;
                 }
-        		if(balance_updates>0){
-        		correctBalance(balance_server.checkBalance());
-        		balance_updates--;
-        		}
+//        		if(balance_updates>0){
+//        		correctBalance(balance_server.checkBalance());
+//        		balance_updates--;
+//        		}
                 return returnVar;
 
         }
