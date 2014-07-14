@@ -628,7 +628,7 @@ void MotorController::executeNext(Motion motion) {
 	}
 	std::cout<<"\n\n";
 	// Reset the clock
-	lastClock = clock();
+	lastClock = getUnixTime();
 }
 
 
