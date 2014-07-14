@@ -360,7 +360,7 @@ bool Vision::knowsBallPosition() {
 bool Vision::knowsRobotPosition() {
 	bool result = true;
 	// Keep track of how many confidence levels are below 0.5
-	int count = 0;
+//	int count = 0;
 
 	// For each of the confidence levels, if it's 0 return false immediately, otherwise keep a total of the confidences below 0.5
 	for (int i = 0; i < history_size; i++) {

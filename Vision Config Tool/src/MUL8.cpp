@@ -7,10 +7,15 @@
 
 #include "MUL8.h"
 #include "Vision.h"
+#include "GameController.h"
 #include <pthread.h>
+
+#define MY_TEAM		0
+#define MY_NUMBER	0
 
 MotorController motorController;
 Vision vis;
+GameController gameController;
 int MUL8_action = 0;
 int MUL8_state = -1;
 
@@ -23,6 +28,13 @@ bool MUL8_ready = false;
 bool MUL8_set = false;
 bool MUL8_play_start = false;
 bool MUL8_finished = false;
+bool second_half = false;
+
+
+/* Boolean used for search function */
+bool mul8_knows_position = false;
+
+struct RoboCupGameControlData myData;
 
 MUL8::MUL8() {
 	// TODO Auto-generated constructor stub
@@ -33,40 +45,38 @@ MUL8::~MUL8() {
 }
 
 void MUL8::search() {
-	bool position = false;
-	bool done = false;
 
 	vis.setAction(SEARCH_FOR_GOAL);
 	//	vis.setAction(CENTER_BALL);
 
-	while (!done) {
-		if (!position && vis.knowsRobotPosition()) {
+	vis.nextFrame();
+
+//	while (!done) {
+		if (!mul8_knows_position && vis.knowsRobotPosition()) {
 			vis.setAction(SEARCH_FOR_BALL);
 			std::cout << "Searching for Ball" << std::endl;
-			position = true;
+			mul8_knows_position = true;
 		}
 		else if (vis.knowsBallPosition()) {
-			done = true;
+			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
+			std::cout << "Vision knows where it is, and where the ball is.\n" <<
+					"We would now normally wait for the robot to move," <<
+					" and then update our world." << std::endl;
+			std::cout << std::endl;
+			std::cout << "The robot is located: (" << vis.getRobotX() <<
+					", " << vis.getRobotY() << ") @ " << vis.getRobotTheta()
+					<< std::endl;
+			std::cout << "The ball is located: (" << vis.getBallX() << ", "
+					<< vis.getBallY() << ")" << std::endl;
 		}
 
 		int c = waitKey(1);
 
 		if ((char)c == 27) {
-			done = true;
+			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
 		}
-
-		vis.nextFrame();
-	}
+//	}
 	// Robot knows where both the ball and the field are
-	std::cout << "Vision knows where it is, and where the ball is.\n" <<
-			"We would now normally wait for the robot to move," <<
-			" and then update our world." << std::endl;
-	std::cout << std::endl;
-	std::cout << "The robot is located: (" << vis.getRobotX() <<
-			", " << vis.getRobotY() << ") @ " << vis.getRobotTheta()
-			<< std::endl;
-	std::cout << "The ball is located: (" << vis.getBallX() << ", "
-			<< vis.getBallY() << ")" << std::endl;
 }
 /*
  * This function returns true when it is near the ball, or false if it loses track of the ball.
@@ -428,19 +438,31 @@ void MUL8::play() {
 	if (!MUL8_play_start) {
 		std::cout << "Let's play!!!!!" << std::endl;
 		MUL8_play_start = true;
+		setAction(MUL8_ACTION_SEARCH);
 	}
-	setAction(MUL8_ACTION_SEARCH);
+//	setAction(MUL8_ACTION_SEARCH);
 	actionStep();
 }
 
 void MUL8::penalty() {
-
+	gameController.getGCData(myData);
+	std::cout << "Waiting in penalty mode" << std::endl;
+	while (myData.teams[MY_TEAM].players[MY_NUMBER].secsTillUnpenalised > 0) {
+		gameController.getGCData(myData);
+		vis.nextFrame();
+		if (myData.teams[MY_TEAM].players[MY_NUMBER].penalty == 0) {
+			break;
+		}
+	}
 }
 
 void MUL8::finish() {
 	if (!MUL8_finished) {
 		std::cout << "Done playing :(" << std::endl;
 		MUL8_finished = true;
+//		MUL8_ready = false;
+//		MUL8_set = false;
+//		MUL8_play_start = false;
 	}
 }
 
@@ -469,27 +491,44 @@ void MUL8::setState(int new_state) {
 }
 
 void MUL8::step() {
-	switch(MUL8_state) {
-	case MUL8_STATE_INIT:
-		init();
-		break;
-	case MUL8_STATE_READY:
-		ready();
-		break;
-	case MUL8_STATE_SET:
-		set();
-		break;
-	case MUL8_STATE_PLAY:
-		play();
-		break;
-	case MUL8_STATE_FINISH:
-		finish();
-		break;
-	case MUL8_STATE_PENALTY:
-		penalty();
-		break;
-	default:
-		break;
-	}
+	gameController.getGCData(myData);
+
+		int MUL8_state = myData.state;
+		int penalty_occured = myData.teams[0].players[0].penalty;
+		if (!second_half && myData.firstHalf == 0) {
+			second_half = true;
+			MUL8_ready = false;
+			MUL8_set = false;
+			MUL8_play_start = false;
+		}
+		if (penalty_occured == 0) {
+
+			switch(MUL8_state) {
+			case MUL8_STATE_INIT:
+				init();
+				break;
+			case MUL8_STATE_READY:
+				ready();
+				break;
+			case MUL8_STATE_SET:
+				set();
+				break;
+			case MUL8_STATE_PLAY:
+				play();
+				break;
+			case MUL8_STATE_FINISH:
+				finish();
+				break;
+			case MUL8_STATE_PENALTY:
+				penalty();
+				break;
+			default:
+				break;
+			}
+		}
+
+		else {
+			penalty();
+		}
 }
 
