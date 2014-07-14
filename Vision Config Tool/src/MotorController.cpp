@@ -748,10 +748,10 @@ int MotorController::step(bool isFalling) {
                         //std::cout << "Returning " << returnVar << " from MotorController" << std::endl;
                         return returnVar;
                 }
-//        		if(balance_updates>0){
-//        		correctBalance(balance_server.checkBalance());
-//        		balance_updates--;
-//        		}
+        		if(balance_updates>0){
+        		correctBalance(balance_server.checkBalance());
+        		balance_updates--;
+        		}
                 return returnVar;
 
         }
