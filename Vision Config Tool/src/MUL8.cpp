@@ -53,36 +53,36 @@ MUL8::~MUL8() {
 
 bool MUL8::search() {
 	bool position = false;
-		bool done = false;
+	bool done = false;
 
-		vis.setAction(SEARCH_FOR_GOAL);
-		//	vis.setAction(CENTER_BALL);
+	vis.setAction(SEARCH_FOR_GOAL);
+	//	vis.setAction(CENTER_BALL);
+
+	vis.nextFrame();
+
+	while (!done) {
+		if (!position && vis.knowsRobotPosition()) {
+			vis.setAction(SEARCH_FOR_BALL);
+			std::cout << "Searching for Ball" << std::endl;
+			position = true;
+		}
+		else if (vis.knowsBallPosition()) {
+			std::cout << "Searching for both" << std::endl;
+			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
+			done = true;
+		}
+
+		int c = waitKey(1);
+
+		if ((char)c == 27) {
+			done = true;
+		}
 
 		vis.nextFrame();
 
-		while (!done) {
-			if (!position && vis.knowsRobotPosition()) {
-				vis.setAction(SEARCH_FOR_BALL);
-				std::cout << "Searching for Ball" << std::endl;
-				position = true;
-			}
-			else if (vis.knowsBallPosition()) {
-				std::cout << "Searching for both" << std::endl;
-				setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
-				done = true;
-			}
-
-			int c = waitKey(1);
-
-			if ((char)c == 27) {
-				done = true;
-			}
-
-			vis.nextFrame();
-
-			done = true;
-		}
-		// Robot knows where both the ball and the field are
+//		done = true;
+	}
+	// Robot knows where both the ball and the field are
 	//	std::cout << "Vision knows where it is, and where the ball is.\n" <<
 	//			"We would now normally wait for the robot to move," <<
 	//			" and then update our world." << std::endl;
@@ -93,7 +93,7 @@ bool MUL8::search() {
 	//	std::cout << "The ball is located: (" << vis.getBallX() << ", "
 	//			<< vis.getBallY() << ")" << std::endl;
 
-		return done;
+	return true;
 }
 /*
  * This function returns true when it is near the ball, or false if it loses track of the ball.
@@ -103,115 +103,121 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 
 	std::cout << "Walking towards the ball time" << std::endl;
 
-	vis.setAction(CENTER_BALL);
-//	double temp_time = getUnixTime();
+	vis.setAction(SEARCH_FOR_BALL);
+	//	double temp_time = getUnixTime();
 	// Search for ball for 6 seconds
-//	while ((getUnixTime()-temp_time) < 6) {
-//		vis.nextFrame();
-//	}
-//	temp_time = getUnixTime();
+	//	while ((getUnixTime()-temp_time) < 6) {
+	//		vis.nextFrame();
+	//	}
+	//	temp_time = getUnixTime();
+
+	vis.nextFrame();
+
+	if (vis.getAction() == CENTER_BALL) {
 
 
-//	double waitTimer = getUnixTime();
-	// TODO I forgot how the robot's X and Y are oriented, might have to change some vision code if this doesn't work
-	//	while (!done) {
+		//	double waitTimer = getUnixTime();
+		// TODO I forgot how the robot's X and Y are oriented, might have to change some vision code if this doesn't work
+		//	while (!done) {
 
-	double turningTheta = motorController.getHeadAngle()*-1;
-	double previous_distance = vis.getBallDistance();
+		double turningTheta = motorController.getHeadAngle()*-1;
+		double previous_distance = vis.getBallDistance();
 
-	// TODO We assume here that each turn left motion turns us approximately 45 degrees
-	if (turningTheta > 23) {
-		std::cout << "Robot turning left. New theta = " << vis.getRobotTheta() << std::endl;
-		if (motorController.getMotion() == "W1") {
-			motorController.setMotion("W1i");
+		// TODO We assume here that each turn left motion turns us approximately 45 degrees
+		if (turningTheta > 23) {
+			std::cout << "Robot turning left. New theta = " << vis.getRobotTheta() << std::endl;
+			if (motorController.getMotion() == "W1") {
+				motorController.setMotion("W1i");
+			}
+			else if (motorController.getMotion() == "W2") {
+				motorController.setMotion("W2i");
+			}
+			doMotion();
+			// Don't need to update odometry as these motions should not affect any odometry data
+			motorController.setMotion("Tl30");
+			doMotion();
+			vis.updateRobotPosition(ODOMETRY_TL30_DISTANCE, ODOMETRY_TL30_THETA);
+			vis.updateRobotTheta(ODOMETRY_TL30_TURN);
 		}
-		else if (motorController.getMotion() == "W2") {
-			motorController.setMotion("W2i");
+		// TODO We assume here that each turn right motion turns us approximately 45 degrees
+		else if (turningTheta < -23) {
+			std::cout << "Robot turning right. New theta = " << vis.getRobotTheta() << std::endl;
+			if (motorController.getMotion() == "W1") {
+				motorController.setMotion("W1i");
+			}
+			else if (motorController.getMotion() == "W2") {
+				motorController.setMotion("W2i");
+			}
+			doMotion();
+			std::cout << "Setting motion to TR" << std::endl;
+			motorController.setMotion("Tr30");
+			doMotion();
+			vis.updateRobotPosition(ODOMETRY_TR30_DISTANCE, ODOMETRY_TR30_THETA);
+			vis.updateRobotTheta(ODOMETRY_TR30_TURN);
+			std::cout << "Robot turning right. New theta = " << vis.getRobotTheta() << std::endl;
 		}
-		doMotion();
-		// Don't need to update odometry as these motions should not affect any odometry data
-		motorController.setMotion("Tl30");
-		doMotion();
-		vis.updateRobotPosition(ODOMETRY_TL30_DISTANCE, ODOMETRY_TL30_THETA);
-		vis.updateRobotTheta(ODOMETRY_TL30_TURN);
-	}
-	// TODO We assume here that each turn right motion turns us approximately 45 degrees
-	else if (turningTheta < -23) {
-		std::cout << "Robot turning right. New theta = " << vis.getRobotTheta() << std::endl;
-		if (motorController.getMotion() == "W1") {
-			motorController.setMotion("W1i");
-		}
-		else if (motorController.getMotion() == "W2") {
-			motorController.setMotion("W2i");
-		}
-		doMotion();
-		std::cout << "Setting motion to TR" << std::endl;
-		motorController.setMotion("Tr30");
-		doMotion();
-		vis.updateRobotPosition(ODOMETRY_TR30_DISTANCE, ODOMETRY_TR30_THETA);
-		vis.updateRobotTheta(ODOMETRY_TR30_TURN);
-		std::cout << "Robot turning right. New theta = " << vis.getRobotTheta() << std::endl;
-	}
-	// Here we assume that we are facing in the correct direction, so let's walk forward
-	else if (previous_distance > distance_to_ball) { //
-		std::string currMo = motorController.getMotion();
-		if (currMo == "Wi") {
-			std::cout << "Position W0_m" << std::endl;
-			motorController.setMotion("W0_m");
-			vis.updateRobotPosition(ODOMETRY_W0_M_DISTANCE, ODOMETRY_W0_M_THETA);
-			vis.updateRobotTheta(ODOMETRY_W0_M_TURN);
-//			waitTimer = getUnixTime();
-		}
-		else if (currMo == "W0_m"/* && ((getUnixTime()-waitTimer) > 1)*/) {
-			motorController.setMotion("W2");
-			vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
-			vis.updateRobotTheta(ODOMETRY_W2_TURN);
-			std::cout << "Position W2" << std::endl;
-		}
-//		else if (currMo == "W0_m") {
-//
-//		}
-		else if (currMo == "W1") {
-			motorController.setMotion("W2");
-			vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
-			vis.updateRobotTheta(ODOMETRY_W2_TURN);
-			std::cout << "Position W2" << std::endl;
-		}
-		else if (currMo == "W2") {
-			motorController.setMotion("W1");
-			vis.updateRobotPosition(ODOMETRY_W1_DISTANCE, ODOMETRY_W1_THETA);
-			vis.updateRobotTheta(ODOMETRY_W1_TURN);
-			std::cout << "Position W1" << std::endl;
+		// Here we assume that we are facing in the correct direction, so let's walk forward
+		else if (previous_distance > distance_to_ball) { //
+			std::string currMo = motorController.getMotion();
+			if (currMo == "Wi") {
+				std::cout << "Position W0_m" << std::endl;
+				motorController.setMotion("W0_m");
+				vis.updateRobotPosition(ODOMETRY_W0_M_DISTANCE, ODOMETRY_W0_M_THETA);
+				vis.updateRobotTheta(ODOMETRY_W0_M_TURN);
+				//			waitTimer = getUnixTime();
+			}
+			else if (currMo == "W0_m"/* && ((getUnixTime()-waitTimer) > 1)*/) {
+				motorController.setMotion("W2");
+				vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
+				vis.updateRobotTheta(ODOMETRY_W2_TURN);
+				std::cout << "Position W2" << std::endl;
+			}
+			//		else if (currMo == "W0_m") {
+			//
+			//		}
+			else if (currMo == "W1") {
+				motorController.setMotion("W2");
+				vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
+				vis.updateRobotTheta(ODOMETRY_W2_TURN);
+				std::cout << "Position W2" << std::endl;
+			}
+			else if (currMo == "W2") {
+				motorController.setMotion("W1");
+				vis.updateRobotPosition(ODOMETRY_W1_DISTANCE, ODOMETRY_W1_THETA);
+				vis.updateRobotTheta(ODOMETRY_W1_TURN);
+				std::cout << "Position W1" << std::endl;
+			}
+			else {
+				std::cout << "Old motion was " << currMo << std::endl;
+				motorController.setMotion("Wi");
+				// No need to update odometry, as no foot movements are involved
+				std::cout << "Position Wi" << std::endl;
+			}
+			doMotion();
+			//				motorController.setMotion("Walk Forward");
+			std::cout << "Robot walking forward. New coordinates: (" << vis.getRobotX() << ", " << vis.getRobotY() << ")" << std::endl;
+			std::cout << "Distance to ball: " << previous_distance << std::endl;
 		}
 		else {
-			std::cout << "Old motion was " << currMo << std::endl;
-			motorController.setMotion("Wi");
-			// No need to update odometry, as no foot movements are involved
-			std::cout << "Position Wi" << std::endl;
-		}
-		doMotion();
-		//				motorController.setMotion("Walk Forward");
-		std::cout << "Robot walking forward. New coordinates: (" << vis.getRobotX() << ", " << vis.getRobotY() << ")" << std::endl;
-		std::cout << "Distance to ball: " << previous_distance << std::endl;
-	}
-	else {
-		// We are within 1 meter of the ball
-		//should call getBehindBall();
-		// At this point, we would determine how to move, whether to move to the far side of the ball, or walk forward and kick it
+			// We are within 1 meter of the ball
+			//should call getBehindBall();
+			// At this point, we would determine how to move, whether to move to the far side of the ball, or walk forward and kick it
 
-		std::string currMo = motorController.getMotion();
-		if (currMo == "W2") {
-			motorController.setMotion("W2i");
-			std::cout << "Returning from Position W2" << std::endl;
-		}
-		else if (currMo == "W1") {
-			motorController.setMotion("W1i");
-			std::cout << "Returning from Position W1" << std::endl;
+			std::string currMo = motorController.getMotion();
+			if (currMo == "W2") {
+				motorController.setMotion("W2i");
+				std::cout << "Returning from Position W2" << std::endl;
+			}
+			else if (currMo == "W1") {
+				motorController.setMotion("W1i");
+				std::cout << "Returning from Position W1" << std::endl;
+			}
+
+			doMotion();
+			// No need to update odometry, as these motions should not affect any odometry data
+			done = true;
 		}
 
-		doMotion();
-		// No need to update odometry, as these motions should not affect any odometry data
-		done = true;
 	}
 	//	}
 
@@ -303,7 +309,7 @@ bool MUL8::alignToKick() {
 
 bool MUL8::checkLocation() {
 
-	bool result = false;
+//	bool result = false;
 
 	vis.nextFrame();
 	double robotTheta = vis.getRobotTheta();
@@ -339,6 +345,7 @@ bool MUL8::checkLocation() {
 	bool localized = false;
 
 	while (!localized) {
+		vis.nextFrame();
 		if (vis.getAction() == LOCALIZE_GOAL) {
 			double headAngle = motorController.getHeadAngle();
 			std::cout << "Robot Head Theta: " << headAngle << std::endl;
@@ -352,14 +359,12 @@ bool MUL8::checkLocation() {
 
 			localized = true;
 		}
-
-		vis.nextFrame();
 	}
 
-//	// This should update the robot's position estimation
-//	for (int i = 0; i < 20; i++) {
-//		vis.nextFrame();
-//	}
+	//	// This should update the robot's position estimation
+	//	for (int i = 0; i < 20; i++) {
+	//		vis.nextFrame();
+	//	}
 
 	return true;
 
@@ -499,23 +504,23 @@ void MUL8::penalty() {
 	gameController.getGCData(myData);
 
 	if(myData.kickOffTeam == 0){
-	std::cout << "Waiting in penalty mode" << std::endl;
-	while (myData.teams[MY_TEAM].players[MY_NUMBER].secsTillUnpenalised > 0) {
-		gameController.getGCData(myData);
-		vis.nextFrame();
-		if (myData.teams[MY_TEAM].players[MY_NUMBER].penalty == 0) {
-			break;
+		std::cout << "Waiting in penalty mode" << std::endl;
+		while (myData.teams[MY_TEAM].players[MY_NUMBER].secsTillUnpenalised > 0) {
+			gameController.getGCData(myData);
+			vis.nextFrame();
+			if (myData.teams[MY_TEAM].players[MY_NUMBER].penalty == 0) {
+				break;
+			}
 		}
-	}
 	}else{
 		std::cout << "Waiting in penalty mode" << std::endl;
-			while (myData.teams[MY_TEAM2].players[MY_NUMBER2].secsTillUnpenalised > 0) {
-				gameController.getGCData(myData);
-				vis.nextFrame();
-				if (myData.teams[MY_TEAM2].players[MY_NUMBER2].penalty == 0) {
-					break;
-				}
+		while (myData.teams[MY_TEAM2].players[MY_NUMBER2].secsTillUnpenalised > 0) {
+			gameController.getGCData(myData);
+			vis.nextFrame();
+			if (myData.teams[MY_TEAM2].players[MY_NUMBER2].penalty == 0) {
+				break;
 			}
+		}
 	}
 }
 
@@ -539,6 +544,7 @@ void MUL8::actionStep() {
 		if (search()) {
 			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
 		}
+		setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
 		break;
 	case MUL8_ACTION_WALK_TOWARDS_BALL:
 		if(walkTowardsBall(currentThreshold)) {
@@ -566,6 +572,7 @@ void MUL8::actionStep() {
 		if (checkLocation()) {
 			setAction(MUL8_ACTION_GET_BEHIND_BALL);
 		}
+		setAction(MUL8_ACTION_GET_BEHIND_BALL);
 		break;
 	default:
 		break;
