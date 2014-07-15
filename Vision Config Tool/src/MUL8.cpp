@@ -10,8 +10,15 @@
 #include "GameController.h"
 #include <pthread.h>
 
+//kick off team in first half
 #define MY_TEAM		0
 #define MY_NUMBER	0
+
+//kick off team in 2nd half
+#define MY_TEAM2	1
+#define MY_NUMBER2	0
+
+
 
 MotorController motorController;
 Vision vis;
@@ -371,7 +378,9 @@ void MUL8::doMotion() {
 	double currentTime = getUnixTime();
 	double stepTime;
 	while (!done) {
+		//gameController.getGCData(myData);
 		int step_result = motorController.step(false);
+		//gameController.getGCData(myData);
 		switch (step_result) {
 		case MUL8_STEP_NULL:
 			break;
@@ -382,8 +391,10 @@ void MUL8::doMotion() {
 			stepTime = motorController.getStepTime();
 			stepTime -= 0.15;	// Subtract 150 mS to deal with frame processing time
 			do {
+				////gameController.getGCData(myData);
 				vis.nextFrame();
 				currentTime = getUnixTime();
+				//gameController.getGCData(myData);
 			} while ((currentTime-startTime) < stepTime);
 			break;
 		case MUL8_MOTION_FINISHED:
@@ -395,6 +406,7 @@ void MUL8::doMotion() {
 
 void MUL8::turn(int theta){
 
+	//gameController.getGCData(myData);
 	if(theta<0){
 		//turn left
 		if(theta<0 && theta>=-15){
@@ -441,6 +453,7 @@ void MUL8::turn(int theta){
 	else{
 		//do nothing?
 	}
+	//gameController.getGCData(myData);
 	doMotion();
 }
 
@@ -481,6 +494,8 @@ void MUL8::play() {
 
 void MUL8::penalty() {
 	gameController.getGCData(myData);
+
+	if(myData.kickOffTeam == 0){
 	std::cout << "Waiting in penalty mode" << std::endl;
 	while (myData.teams[MY_TEAM].players[MY_NUMBER].secsTillUnpenalised > 0) {
 		gameController.getGCData(myData);
@@ -488,6 +503,16 @@ void MUL8::penalty() {
 		if (myData.teams[MY_TEAM].players[MY_NUMBER].penalty == 0) {
 			break;
 		}
+	}
+	}else{
+		std::cout << "Waiting in penalty mode" << std::endl;
+			while (myData.teams[MY_TEAM2].players[MY_NUMBER2].secsTillUnpenalised > 0) {
+				gameController.getGCData(myData);
+				vis.nextFrame();
+				if (myData.teams[MY_TEAM2].players[MY_NUMBER2].penalty == 0) {
+					break;
+				}
+			}
 	}
 }
 
@@ -505,6 +530,7 @@ void MUL8::finish() {
 }
 
 void MUL8::actionStep() {
+	//gameController.getGCData(myData);
 	switch (MUL8_action) {
 	case MUL8_ACTION_SEARCH:
 		if (search()) {
@@ -541,6 +567,7 @@ void MUL8::actionStep() {
 	default:
 		break;
 	}
+	//gameController.getGCData(myData);
 }
 
 void MUL8::setAction(int new_action) {
@@ -552,10 +579,12 @@ void MUL8::setState(int new_state) {
 }
 
 void MUL8::step() {
-	gameController.getGCData(myData);
+	for (int i = 0; i < 10; i++) {
+		gameController.getGCData(myData);
+	}
 
 	int MUL8_state = myData.state;
-	int penalty_occured = myData.teams[0].players[0].penalty;
+	int penalty_occured = myData.teams[second_half].players[0].penalty;
 	if (!second_half && myData.firstHalf == 0) {
 		second_half = true;
 		MUL8_ready = false;
