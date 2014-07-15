@@ -111,9 +111,11 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 	//	}
 	//	temp_time = getUnixTime();
 
-	vis.nextFrame();
+	while (vis.getAction() != CENTER_BALL) {
+		vis.nextFrame();
+	}
 
-	if (vis.getAction() == CENTER_BALL) {
+//	if (vis.getAction() == CENTER_BALL) {
 
 
 		//	double waitTimer = getUnixTime();
@@ -218,7 +220,7 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			done = true;
 		}
 
-	}
+//	}
 	//	}
 
 	return done;
