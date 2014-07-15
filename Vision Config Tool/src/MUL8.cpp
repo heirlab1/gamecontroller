@@ -58,6 +58,8 @@ bool MUL8::search() {
 		vis.setAction(SEARCH_FOR_GOAL);
 		//	vis.setAction(CENTER_BALL);
 
+		vis.nextFrame();
+
 		while (!done) {
 			if (!position && vis.knowsRobotPosition()) {
 				vis.setAction(SEARCH_FOR_BALL);
@@ -334,7 +336,9 @@ bool MUL8::checkLocation() {
 	// Cycle through once, if the goal is centered, then the action should remain LOCALIZE_GOAL
 	vis.nextFrame();
 
-//	while (!localized) {
+	bool localized = false;
+
+	while (!localized) {
 		if (vis.getAction() == LOCALIZE_GOAL) {
 			double headAngle = motorController.getHeadAngle();
 			std::cout << "Robot Head Theta: " << headAngle << std::endl;
@@ -346,19 +350,18 @@ bool MUL8::checkLocation() {
 			motorController.setMotorPosition(23, motor23pos, 256);
 			motorController.setMotorPosition(24, motor24pos, 256);
 
-			result = true;
+			localized = true;
 		}
 
-		return result;
-//		vis.nextFrame();
-//	}
+		vis.nextFrame();
+	}
 
 //	// This should update the robot's position estimation
 //	for (int i = 0; i < 20; i++) {
 //		vis.nextFrame();
 //	}
 
-
+	return true;
 
 }
 
@@ -388,7 +391,7 @@ void MUL8::doMotion() {
 			// Loop through vision until it's time to execute the next motion
 			startTime = getUnixTime();
 			currentTime = getUnixTime();
-			stepTime = motorController.getStepTime();
+			stepTime = motorController.getStepTime()+motorController.balance_slowdown;
 			stepTime -= 0.15;	// Subtract 150 mS to deal with frame processing time
 			do {
 				////gameController.getGCData(myData);

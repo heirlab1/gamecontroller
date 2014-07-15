@@ -188,7 +188,7 @@ void GameController::getGCData(RoboCupGameControlData &myData){
 	if(close(sockfd) != 0)
 		printf("Server-sockfd closing failed!\n");
 	else{
-		printf("Server-sockfd successfully closed!\n");
+//		printf("Server-sockfd successfully closed!\n");
 	}
 }
 

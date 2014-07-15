@@ -301,6 +301,7 @@ public:
 
         void correctBalance(int);
 
+
         void displayMotionStatus(void); //show the user which step we are on in a graphical manner
         void recalculateCurrentMotionSpeeds(void);
         void deleteCurrentStep(void);   //manipulate struct to delete step
@@ -318,6 +319,8 @@ public:
 
     	double getStepTime();
     	void setMotorPosition(int, int, int);
+
+    	double balance_slowdown;
 
 };
 

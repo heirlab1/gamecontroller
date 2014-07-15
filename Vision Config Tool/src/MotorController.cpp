@@ -23,7 +23,7 @@
 #include <dynamixel.h>
 
 balanceServer balance_server;
-bool motionExecutionDisabled= true;//todo
+bool motionExecutionDisabled= false;//todo
 
 double lastClock, batteryClock;
 std::map<std::string, Motion> motions;
@@ -58,7 +58,7 @@ int checkBattery;
 int result;
 
 int balance_updates=0;
-double balance_slowdown= 0;
+//double balance_slowdown= 0;
 int previous_balance= 10;
 
 std::vector<int> motors;
@@ -78,6 +78,7 @@ double MotorController::getUnixTime() {
 // Default Constructor
 MotorController::MotorController() {
         executing = false;
+        balance_slowdown=0;
 }
 
 void MotorController::init() {
@@ -579,16 +580,6 @@ void MotorController::executeNext(Motion motion) {
 			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
 
 		}
-		else if(motion.currentIndex==4){//this is the part when it falls back to recover after making the turn
-			if(currentMotion == "Tl15" || currentMotion == "Tl30" || currentMotion == "Tl45" || currentMotion == "Tr15" || currentMotion == "Tr30" || currentMotion == "Tr45" ){
-
-				std::cout<<"###  SLOW DOWN TURN: "<<balance_slowdown<<std::endl;
-
-				for(int j=0; j<motion.num_motors; j++){
-					data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
-				}
-			}
-		}
 
 		else{
 			for (int i = 0; i < motion.num_motors; i++) {
@@ -748,10 +739,10 @@ int MotorController::step(bool isFalling) {
                         //std::cout << "Returning " << returnVar << " from MotorController" << std::endl;
                         return returnVar;
                 }
-//        		if(balance_updates>0){
-//        		correctBalance(balance_server.checkBalance());
-//        		balance_updates--;
-//        		}
+        		if(balance_updates>0){
+        		correctBalance(balance_server.checkBalance());
+        		balance_updates--;
+        		}
                 return returnVar;
 
         }
