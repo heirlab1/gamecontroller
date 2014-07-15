@@ -566,7 +566,7 @@ void MotorController::executeNext(Motion motion) {
 				int finalPos= motion.motorPositions[0][i];
 				data[i]= SPEED_CONSTANT*abs(dxl_read_word(i+1,PRESENT_POSITION)-finalPos)/(motion.time[0]);//+balance_slowdown); //find proper motor speeds to meet the time of the first step+ balance offset
 			}
-			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
+//			balance_slowdown = 0;	//after the balance offset has been applied to this motion, set it back to zero- start fresh
 		}
 
 		else if(motion.currentIndex==1){
@@ -762,57 +762,114 @@ double MotorController::getStepTime() {
 }
 
 void MotorController::correctBalance(int y_accel){
-	balance_slowdown= 0;
+	//Right--------------Center----------------------Left
+	//  1 2 3 4 5 6 7 8 9  10  11 12 13 14 15 16 17 18 19
+//	balance_slowdown= 0;
 	//	previous_balance= y_accel;
 
-	if(y_accel<5 && y_accel>14){
-		//robot is falling
-		//step(true); disable all motors or set torque to 0 for all, let robot fall
-	}
-	else if(y_accel== 0){//server not working
+	if(y_accel== 0){//server not working
 
 		return;
 	}
+	else if(y_accel>0){
+		if(y_accel<=5 ){
+			std::cout<<"FALLING RIGHT!! "<<y_accel<<"   XX----|------|"<<std::endl;
 
-	else{
+			//robot is falling
+			//step(true); disable all motors or set torque to 0 for all, let robot fall
+		}
+		else if( y_accel>=14){
+			std::cout<<"FALLING LEFT!! "<<y_accel<<"   |------|----XX"<<std::endl;
 
-		if(y_accel> 8 && y_accel<12){	//robot is relatively balanced
+		}
+		else if(y_accel>= 9 && y_accel<=11){	//robot is relatively balanced
 			//do nothing?
-			previous_balance=y_accel;
+//			previous_balance=y_accel;
+			std::cout<<"BALANCED "<<y_accel<<"   |------(O)------|"<<std::endl;
+			balance_slowdown=0;
 		}
 		//if leaning to the right, incrementally adjust balance
-		else if(previous_balance<=10 ){
+//		else if(previous_balance<=10 ){
 			//			printf("got to right side");
-			if(y_accel<9){
-				previous_balance=y_accel;
-				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
-					balance_slowdown=.2;
-				}
-				else{
-					balance_slowdown=.6;
-				}
-
+		else if(y_accel==8){
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				std::cout<<"LEANING RIGHT "<<y_accel<<"   |------o-|-------|"<<std::endl;
+				balance_slowdown=.1;
+				//
+			}
+		else if(y_accel==7){
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				std::cout<<"LEANING RIGHT "<<y_accel<<"   |---o----|-------|"<<std::endl;
+				balance_slowdown=.4;
+				//balance_pause= true;
+			}
+		else if(y_accel==6){
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tr15" || currentMotion=="Tr30" || currentMotion=="Tr45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				std::cout<<"LEANING RIGHT "<<y_accel<<"   |o-------|-------|"<<std::endl;
+				balance_slowdown=.7;
+				//balance_pause= true;
 			}
 
-		}
+			//
+			//			}
+
+//		}
 		//if leaning to the left
-		else if(previous_balance>=10 ){
+//		else if(previous_balance>=10 ){
 			//			printf("got to left side");
-			if(y_accel>11){
+		else if(y_accel==12){
+				//
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tl15" || currentMotion=="Tl30" || currentMotion=="Tl45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				std::cout<<"LEANING LEFT "<<y_accel<<"   |-------|-o-----|"<<std::endl;
+				balance_slowdown=.1;
+				//				}
 
-				previous_balance=y_accel;
-				if(currentMotion=="Tl15" || currentMotion=="Tl30" || currentMotion=="Tl45"){
-					balance_slowdown=.2;
-				}
-				else{
-					balance_slowdown=.6;
-				}
+			}
+		else if(y_accel==13){
+				//
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tl15" || currentMotion=="Tl30" || currentMotion=="Tl45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				std::cout<<"LEANING LEFT "<<y_accel<<"   |-------|---o---|"<<std::endl;
+				balance_slowdown=.4;
+				//				}
+
+			}
+		else if(y_accel==14){
+				//
+				//				previous_balance=y_accel;
+				//				if(currentMotion=="Tl15" || currentMotion=="Tl30" || currentMotion=="Tl45"){
+				//					balance_slowdown=.2;
+				//				}
+				//				else{
+				std::cout<<"LEANING LEFT "<<y_accel<<"   |-------|------o|"<<std::endl;
+				balance_slowdown=.7;
+				//				}
 
 			}
 
-		}
-
+//		}
 	}
+
+
 }
 
 /**
