@@ -584,9 +584,9 @@ void MUL8::setState(int new_state) {
 }
 
 void MUL8::step() {
-	for (int i = 0; i < 10; i++) {
+//	for (int i = 0; i < 10; i++) {
 		gameController.getGCData(myData);
-	}
+//	}
 
 	int MUL8_state = myData.state;
 	int penalty_occured = myData.teams[my_team].players[0].penalty;
@@ -628,5 +628,7 @@ void MUL8::step() {
 	else {
 		penalty();
 	}
+
+	gameController.getGCData(myData);
 }
 
