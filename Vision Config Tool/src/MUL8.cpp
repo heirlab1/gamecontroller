@@ -11,13 +11,8 @@
 #include <pthread.h>
 
 //kick off team in first half
-#define MY_TEAM		0
+int my_team = 1;
 #define MY_NUMBER	0
-
-//kick off team in 2nd half
-#define MY_TEAM2	1
-#define MY_NUMBER2	0
-
 
 
 MotorController motorController;
@@ -72,6 +67,12 @@ bool MUL8::search() {
 			done = true;
 		}
 
+		gameController.getGCData(myData);
+
+		if (myData.secondaryTime == 0) {
+			done = true;
+		}
+
 		int c = waitKey(1);
 
 		if ((char)c == 27) {
@@ -111,11 +112,15 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 	//	}
 	//	temp_time = getUnixTime();
 
-	while (vis.getAction() != CENTER_BALL) {
+//	while (vis.getAction() != CENTER_BALL) {
+	for (int i = 0; i < 5; i++) {
 		vis.nextFrame();
 	}
 
-//	if (vis.getAction() == CENTER_BALL) {
+	motorController.stopHead();
+//	}
+
+	if (vis.getAction() == CENTER_BALL) {
 
 
 		//	double waitTimer = getUnixTime();
@@ -220,7 +225,7 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			done = true;
 		}
 
-//	}
+	}
 	//	}
 
 	return done;
@@ -504,24 +509,12 @@ void MUL8::play() {
 
 void MUL8::penalty() {
 	gameController.getGCData(myData);
-
-	if(myData.kickOffTeam == 0){
-		std::cout << "Waiting in penalty mode" << std::endl;
-		while (myData.teams[MY_TEAM].players[MY_NUMBER].secsTillUnpenalised > 0) {
-			gameController.getGCData(myData);
-			vis.nextFrame();
-			if (myData.teams[MY_TEAM].players[MY_NUMBER].penalty == 0) {
-				break;
-			}
-		}
-	}else{
-		std::cout << "Waiting in penalty mode" << std::endl;
-		while (myData.teams[MY_TEAM2].players[MY_NUMBER2].secsTillUnpenalised > 0) {
-			gameController.getGCData(myData);
-			vis.nextFrame();
-			if (myData.teams[MY_TEAM2].players[MY_NUMBER2].penalty == 0) {
-				break;
-			}
+	std::cout << "Waiting in penalty mode" << std::endl;
+	while (myData.teams[my_team].players[MY_NUMBER].secsTillUnpenalised > 0) {
+		gameController.getGCData(myData);
+		vis.nextFrame();
+		if (myData.teams[my_team].players[MY_NUMBER].penalty == 0) {
+			break;
 		}
 	}
 }
@@ -596,12 +589,15 @@ void MUL8::step() {
 	}
 
 	int MUL8_state = myData.state;
-	int penalty_occured = myData.teams[second_half].players[0].penalty;
+	int penalty_occured = myData.teams[my_team].players[0].penalty;
 	if (!second_half && myData.firstHalf == 0) {
 		second_half = true;
 		MUL8_ready = false;
 		MUL8_set = false;
 		MUL8_play_start = false;
+
+		// Change my_team to be the other team number
+		my_team = ((my_team + 1) % 2);
 	}
 	if (penalty_occured == 0) {
 
