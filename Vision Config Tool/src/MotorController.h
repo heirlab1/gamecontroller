@@ -322,6 +322,8 @@ public:
 
     	double balance_slowdown;
 
+    	double getHeadDownAngle();
+
 };
 
 #endif /* MOTORCONTROLLER_H_ */

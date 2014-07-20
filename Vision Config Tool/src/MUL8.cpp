@@ -501,7 +501,12 @@ void MUL8::play() {
 	if (!MUL8_play_start) {
 		std::cout << "Let's play!!!!!" << std::endl;
 		MUL8_play_start = true;
-		setAction(MUL8_ACTION_SEARCH);
+		if (myData.kickOffTeam != my_team) {
+			setAction(MUL8_ACTION_SEARCH);
+		}
+		else {
+			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
+		}
 	}
 	//	setAction(MUL8_ACTION_SEARCH);
 	actionStep();

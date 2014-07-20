@@ -2789,4 +2789,13 @@ void MotorController::setMotorPosition(int motor, int position, int speed=-1) {
 	dxl_write_word(motor, GOAL_POSITION, position);
 }
 
+double MotorController::getHeadDownAngle() {
+	int presentPosition = dxl_read_word(24, PRESENT_POSITION);
 
+	int difference = M24_CCW - presentPosition;
+
+	double angle = difference*DEGREES_PER_POSITION;
+
+	return angle;
+
+}

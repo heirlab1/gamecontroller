@@ -34,9 +34,10 @@
 #define BOT							3
 
 
-#define GOAL_HEIGHT					90.0	//180.0 // FOR ROBOCUP
-#define GOAL_WIDTH					167.0	//300.0 // FOR ROBOCUP
-#define GOAL_DEPTH					44.0	//60.0  // FOR ROBOCUP
+#define GOAL_HEIGHT					/*90.0*/	180.0 // FOR ROBOCUP
+#define GOAL_WIDTH					/*167.0*/	300.0 // FOR ROBOCUP
+#define GOAL_DEPTH					/*44.0*/	60.0  // FOR ROBOCUP
+#define GOAL_POST_WIDTH							10.0  // FOR ROBOCUP
 
 #define UPPER_LEFT_CORNER			0
 #define UPPER_RIGHT_CORNER			1

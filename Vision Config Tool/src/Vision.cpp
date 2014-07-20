@@ -15,7 +15,7 @@ int max_frequency = 1000;
 int history_size = 8;
 
 int lowerH=22;//13;//15;//5;//15;//15;//11;//20;//10;//18;
-int lowerS=191;//77;//160;//202;//134;//202;//165;//100;//227;//158;
+int lowerS=115;//77;//160;//202;//134;//202;//165;//100;//227;//158;
 int lowerV=146;//172;//83;//255;//144;//255;//145;//100;//141;//80;
 
 int ballLowerH = 122;//115;//0;//158;//0;//157;//148;//0;//0;//0;//0;//0;
@@ -61,6 +61,10 @@ int const max_lowThreshold = 100;
 int ratio = 3;
 int kernel_size = 3;
 const char* window_name = "Edge Map";
+
+
+int pixels_to_black_out = 160;
+
 
 int action = WAIT;
 
@@ -113,7 +117,7 @@ void Vision::init(MotorController& controller) {
 	motorController = &controller;
 	cap = setup();
 	setwindowSettings();
-//	calibrateThresholds();
+	calibrateThresholds();
 
 	// Initialize the arrays
 	for (int i = 0; i < history_size; i++) {
@@ -282,6 +286,8 @@ void Vision::calibrateThresholds() {
 
 	cvCreateTrackbar("LowerV", "Ball", &lowerV, 255, NULL);
 	cvCreateTrackbar("UpperV", "Ball", &upperV, 255, NULL);
+
+//	cvCreateTrackbar("Pixels", "Ball", &pixels_to_black_out, 480, NULL);
 
 	// Keep updating the image with the current thresholds until the user presses 'g'
 	while ((char)waitKey(80) != 'g') {
@@ -538,15 +544,40 @@ Mat Vision::preprocess(Mat original) {
 	Mat temp;
 	medianBlur(original, temp, kernel_size);
 
+	double headAngle = motorController->getHeadDownAngle();
+
+	// TODO For testing purposes only
+	if (headAngle > 90 || headAngle < 0) {
+		headAngle = 0;
+	}
+
+	int maskPixelHeight = 160 - (8 * headAngle);
+	if (maskPixelHeight < 0) {
+		maskPixelHeight = 0;
+	}
+//
+//	Mat mask(temp.rows, temp.cols, );
+//	mask.zeros(temp.rows, temp.cols, CV_8UC1);
+//
+	Rect rect;
+	rect.x = 0;
+	rect.y = 0;
+	rect.width = temp.cols;
+	rect.height = maskPixelHeight;
+
+	rectangle(temp, rect, Scalar(0, 0, 0), -1, 8, 0);
+
 	// Convert the image into HSV Color coding
 	Mat imgHSV = temp.clone();
 	cvtColor(temp, imgHSV, CV_BGR2HSV);
+
+	imshow("IMG HSV", imgHSV);
 
 	// Get the thresholded image
 	Mat imgThresh = GetThresholdedImage(imgHSV);
 
 	// Show the thresholded image
-//	imshow("imgThresh", imgThresh);
+	imshow("imgThresh", imgThresh);
 
 	// Detect the edges using Canny Edge Detection
 	Mat canny;
@@ -1406,37 +1437,45 @@ void Vision::determinePosition(RotatedRect boundRect, Mat &imgDraw, Mat &frame) 
 
 	int known_points = (int)refined.size();
 	double distance_from_cam = -1;
-	double observed_length = -1;
-	double theta = -100;
+//	double observed_length = -1;
+//	double theta = -100;
 
 	// If we know both points on the left, we are probably to the left of the goal, so use those points to determine our distance and angle
-	if (top_left_index >= 0 && bot_left_index >= 0) {
-		distance_from_cam = getDistanceFromCamera(GOAL_HEIGHT/getDistance(refined[top_left_index], refined[bot_left_index]));
-		if (top_right_index >= 0) {
-			observed_length = getLength(distance_from_cam, getDistance(refined[top_left_index], refined[top_right_index]));
-			theta = -1 * getAngleFromCenter(GOAL_WIDTH, observed_length, distance_from_cam);
-		}
-	}
+//	if (top_left_index >= 0 && bot_left_index >= 0) {
+//		distance_from_cam = getDistanceFromCamera(GOAL_POST_WIDTH/getDistance(refined[top_left_index], refined[top_right_index]));
+//		if (top_right_index >= 0) {
+//			observed_length = getLength(distance_from_cam, getDistance(refined[top_left_index], refined[top_right_index]));
+//			theta = -1 * getAngleFromCenter(GOAL_WIDTH, observed_length, distance_from_cam);
+//		}
+//	}
 
 	// Otherwise, if we know both points on the right, we are probably to the right of the goal, so use those points to determine our distance and angle
-	else if (top_right_index >= 0 && bot_right_index >= 0) {
-		distance_from_cam = getDistanceFromCamera(GOAL_HEIGHT/getDistance(refined[top_right_index], refined[bot_right_index]));
-		if (top_left_index >= 0) {
-			observed_length = getLength(distance_from_cam, getDistance(refined[top_left_index], refined[top_right_index]));
-			theta = getAngleFromCenter(GOAL_WIDTH, observed_length, distance_from_cam);
-		}
-	}
+//	else if (top_right_index >= 0 && bot_right_index >= 0) {
+//		distance_from_cam = getDistanceFromCamera(GOAL_HEIGHT/getDistance(refined[top_right_index], refined[bot_right_index]));
+//		if (top_left_index >= 0) {
+//			observed_length = getLength(distance_from_cam, getDistance(refined[top_left_index], refined[top_right_index]));
+//			theta = getAngleFromCenter(GOAL_WIDTH, observed_length, distance_from_cam);
+//		}
+//	}
 
 	/* Try even rougher estimations */
-	double distance_from_cam_2 = getDistanceFromCamera(GOAL_HEIGHT/getDistance(rect_points[left_top], rect_points[left_bot]));
-	double observed_length2 = getLength(distance_from_cam_2, getDistance(rect_points[left_top], rect_points[right_top]));
-	double theta2 = getAngleFromCenter(GOAL_WIDTH, observed_length2, distance_from_cam_2);
+	double heightDistance = getDistance(rect_points[left_top], rect_points[left_bot]);
+	double widthDistance = getDistance(rect_points[left_top], rect_points[right_top]);
+	double distance_from_cam_2;
+	if ((heightDistance / widthDistance) > 2) {
+		distance_from_cam_2 = getDistanceFromCamera(GOAL_POST_WIDTH/getDistance(rect_points[left_top], rect_points[right_top]));
+	}
+	else {
+		distance_from_cam_2 = getDistanceFromCamera(GOAL_HEIGHT/getDistance(rect_points[left_top], rect_points[left_bot]));
+	}
+//	double observed_length2 = getLength(distance_from_cam_2, getDistance(rect_points[left_top], rect_points[right_top]));
+//	double theta2 = getAngleFromCenter(GOAL_WIDTH, observed_length2, distance_from_cam_2);
 	distance[distance_index] = distance_from_cam_2;
 	distance_confidence[distance_index] = known_points/4.0;
 	distance_index = (distance_index + 1) % history_size;
-	angle[angle_index] = theta2;
-	angle_confidence[angle_index] = known_points/4.0;
-	angle_index = (angle_index + 1) % history_size;
+//	angle[angle_index] = theta2;
+//	angle_confidence[angle_index] = known_points/4.0;
+//	angle_index = (angle_index + 1) % history_size;
 
 
 	// If we have a reading on the distance, update our position estimation
@@ -1446,11 +1485,11 @@ void Vision::determinePosition(RotatedRect boundRect, Mat &imgDraw, Mat &frame) 
 		distance_confidence[distance_index-1] = (known_points == 3) ? 0.75 : 0.25;
 	}
 	// If we have a reading on the angle, update our angle estimation
-	if (theta > -100) {
-		std::cout << "Angle from goal: " << theta << "°" << std::endl;
-		angle[angle_index-1] = theta;
-		angle_confidence[angle_index-1] = (known_points == 3) ? 0.75 : 0.25;
-	}
+//	if (theta > -100) {
+//		std::cout << "Angle from goal: " << theta << "°" << std::endl;
+//		angle[angle_index-1] = theta;
+//		angle_confidence[angle_index-1] = (known_points == 3) ? 0.75 : 0.25;
+//	}
 }
 
 double Vision::averageOf(double vec[], int size) {
@@ -1551,7 +1590,7 @@ Rect Vision::processBall(Mat frame) {
 	//    drawContours(img, contours, largest_contour_index, Scalar(0, 255, 255), CV_FILLED, 8, hierarchy);
 
 	Point centerRec = Point((boundRect.x + boundRect.width/2), (boundRect.y + boundRect.height/2));
-	circle(frame, cvPoint(centerRec.x,centerRec.y), boundRect.width/2, CV_RGB(255,0,0), -1, 8, 0 );
+	circle(frame, cvPoint(centerRec.x, centerRec.y), boundRect.width/2, CV_RGB(255,0,0), -1, 8, 0 );
 	// END DRAWING IMAGE
 
 	// Return the bounding rectangle
@@ -1561,7 +1600,7 @@ Rect Vision::processBall(Mat frame) {
 void Vision::nextFrame() {
 
 	Mat frame;
-	timer = getUnixTime();
+//	timer = getUnixTime();
 
 	// Grab the next frame. If there is an error, return to calling function
 	if (!cap.read(frame)) {
@@ -1573,35 +1612,58 @@ void Vision::nextFrame() {
 		flip(frame, frame, 0);
 	}
 
-	// Do this if MUL8 is searching for the ball
-	if (action == SEARCH_FOR_BALL) {
+	switch(action) {
+	case SEARCH_FOR_BALL:
 		search_for_ball(frame);
-	}
-
-	// Do this if MUL8 is searching for the goal
-	else if (action == SEARCH_FOR_GOAL) {
+		break;
+	case SEARCH_FOR_GOAL:
 		search_for_goal(frame);
-	}
-
-	// Do this if MUL8 is searching for both the goal and the ball at the same time
-	else if (action == SEARCH_FOR_BOTH) {
+		break;
+	case SEARCH_FOR_BOTH:
 		search_for_both(frame);
-	}
-
-	// Do this is MUL8 needs to center the goal in the frame
-	else if (action == CENTER_GOAL) {
+		break;
+	case CENTER_GOAL:
 		center_goal(frame);
-	}
-
-	// Do this if MUL8 needs to center the ball in the frame
-	else if (action == CENTER_BALL) {
+		break;
+	case CENTER_BALL:
 		center_ball(frame);
+		break;
+	case LOCALIZE_GOAL:
+		localize_goal(frame);
+		break;
+	default:
+		break;
 	}
 
-	// Do this if we need to determine where we are based on the goal's position
-	else if (action == LOCALIZE_GOAL) {
-		localize_goal(frame);
-	}
+//	// Do this if MUL8 is searching for the ball
+//	if (action == SEARCH_FOR_BALL) {
+//		search_for_ball(frame);
+//	}
+//
+//	// Do this if MUL8 is searching for the goal
+//	else if (action == SEARCH_FOR_GOAL) {
+//		search_for_goal(frame);
+//	}
+//
+//	// Do this if MUL8 is searching for both the goal and the ball at the same time
+//	else if (action == SEARCH_FOR_BOTH) {
+//		search_for_both(frame);
+//	}
+//
+//	// Do this is MUL8 needs to center the goal in the frame
+//	else if (action == CENTER_GOAL) {
+//		center_goal(frame);
+//	}
+//
+//	// Do this if MUL8 needs to center the ball in the frame
+//	else if (action == CENTER_BALL) {
+//		center_ball(frame);
+//	}
+//
+//	// Do this if we need to determine where we are based on the goal's position
+//	else if (action == LOCALIZE_GOAL) {
+//		localize_goal(frame);
+//	}
 
 	// Put information on the screen for the user to see and debug
 	char text[255];
@@ -1609,8 +1671,8 @@ void Vision::nextFrame() {
 	putText(frame, text, Point(10, 400), FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(200, 200, 250), 1, CV_AA);
 	sprintf(text, "Angle from goal: %f    Confidence Angle: %f", angle_from_goal, confidence_angle_from_goal);
 	putText(frame, text, Point(10, 420), FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(200, 200, 250), 1, CV_AA);
-	sprintf(text, "%f fps", (1/((getUnixTime()-timer))));
-	timer = getUnixTime();
+//	sprintf(text, "%f fps", (1/((getUnixTime()-timer))));
+//	timer = getUnixTime();
 	putText(frame, text, Point(10, 460), FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(200, 200, 250), 1, CV_AA);
 	sprintf(text, "Coordinates: (%d, %d)", position.x, position.y);
 	putText(frame, text, Point(10, 20), FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(0, 255, 255), 1, CV_AA);
@@ -1684,29 +1746,31 @@ void Vision::center_ball(Mat frame) {
 	Rect centerRec = processBall(frame);
 	centerRec.x += centerRec.width/2;
 	centerRec.y += centerRec.height/2;
+	int centerX = centerRec.x;
+	int centerY = centerRec.y;
 
 	// Determine how MUL8 needs to move its head in order to get the ball centered in the frame
-	if (centerRec.x >= 0) {
+	if (centerX >= 0) {
 		// Calculate the moving speed based on the distance between the center of the ball and the center of the screen
-		int speed = (int)getDistance(Point(centerRec.x, centerRec.y), Point(320, 240));
+		int speed = (int)getDistance(Point(centerX, centerY), Point(320, 240));
 		speed /= 7;
 
-		if (centerRec.x < /*213*/310) {
-			if (centerRec.y < /*160*/230) {
+		if (centerX < /*213*/310) {
+			if (centerY < /*160*/230) {
 				motorController->moveHead(MUL8_HEAD_UP_RIGHT, speed);
 			}
-			else if (centerRec.y > /*320*/250) {
+			else if (centerY > /*320*/250) {
 				motorController->moveHead(MUL8_HEAD_DOWN_RIGHT, speed);
 			}
 			else {
 				motorController->moveHead(MUL8_HEAD_RIGHT, speed);
 			}
 		}
-		else if (centerRec.x > /*427*/330) {
-			if (centerRec.y < /*160*/230) {
+		else if (centerX > /*427*/330) {
+			if (centerY < /*160*/230) {
 				motorController->moveHead(MUL8_HEAD_UP_LEFT, speed);
 			}
-			else if (centerRec.y > /*320*/250) {
+			else if (centerY > /*320*/250) {
 				motorController->moveHead(MUL8_HEAD_DOWN_LEFT, speed);
 			}
 			else {
@@ -1714,10 +1778,10 @@ void Vision::center_ball(Mat frame) {
 			}
 		}
 		else {
-			if (centerRec.y < /*160*/230) {
+			if (centerY < /*160*/230) {
 				motorController->moveHead(MUL8_HEAD_UP, speed);
 			}
-			else if (centerRec.y > /*320*/250 && motorController->readMotorPosition(24) < 400) {
+			else if (centerY > /*320*/250 && motorController->readMotorPosition(24) < 400) {
 				// The ball is on the ground right by the robot
 				if (motorController->headLeftRightIsMoving() || motorController->headUpDownIsMoving()) {
 					motorController->stopHead();
@@ -1726,7 +1790,7 @@ void Vision::center_ball(Mat frame) {
 				ball_distance[ball_index] = 62;
 				ball_index = (ball_index + 1) % history_size;
 			}
-			else if (centerRec.y >/* 320*/250) {
+			else if (centerY >/* 320*/250) {
 				motorController->moveHead(MUL8_HEAD_DOWN, speed);
 				ball_distance[ball_index] = detectBallDistance(centerRec);
 				ball_index = (ball_index + 1) % history_size;
