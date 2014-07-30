@@ -17,11 +17,11 @@
 #include <cmath>
 
 //#define MOTIONS_PREPATH                       "/home/mul8/Documents/MU-L8_Motion_Files_limb_select/"
-#define TEMP_MOTION_FILE                "/home/unicorn/Documents/motions_text_file_compliant_joints.mtn"
-#define TEMP_MOTION_QUEUE_FILE  "/home/unicorn/Documents/motions_queue_text_file.mtnq"
-#define ZERO_POSE_FILE                  "/home/unicorn/Documents/MU-L8_Motion_Files_compliant_joints/zero_pose_file.txt"
-#define MOTIONS_PREPATH  "/home/unicorn/Documents/MU-L8_Motion_Files_compliant_joints/"
-#define DATA_PREPATH     "/home/unicorn/Dropbox/MUL8_onboard/Motion_testing/Position_testing/"
+#define TEMP_MOTION_FILE                "/home/mul8/Documents/motions_text_file_compliant_joints.mtn"
+#define TEMP_MOTION_QUEUE_FILE  "/home/mul8/Documents/motions_queue_text_file.mtnq"
+#define ZERO_POSE_FILE                  "/home/mul8/Documents/MU-L8_Motion_Files_compliant_joints/zero_pose_file.txt"
+#define MOTIONS_PREPATH  "/home/mul8/Documents/MU-L8_Motion_Files_compliant_joints/"
+#define DATA_PREPATH     "/home/mul8/Dropbox/MUL8_onboard/Motion_testing/Position_testing/"
 
 
 
@@ -323,6 +323,8 @@ public:
     	double balance_slowdown;
 
     	double getHeadDownAngle();
+
+    	double getBatteryVoltage();
 
 };
 

@@ -9,8 +9,12 @@
 //#include "dynamixel.h"
 #include <cmath>
 
+bool visionDisplayEnabled = false;
+
 int vis_frequency = 0;
 int max_frequency = 1000;
+
+int searching_speed = 125;
 
 int history_size = 8;
 
@@ -18,9 +22,9 @@ int lowerH=22;//13;//15;//5;//15;//15;//11;//20;//10;//18;
 int lowerS=115;//77;//160;//202;//134;//202;//165;//100;//227;//158;
 int lowerV=146;//172;//83;//255;//144;//255;//145;//100;//141;//80;
 
-int ballLowerH = 122;//115;//0;//158;//0;//157;//148;//0;//0;//0;//0;//0;
-int ballLowerS = 197;//145;//177;//72;//218;//133;//58;//187;//137;//189;//31;//0;
-int ballLowerV = 0;//144;//194;//102;//96;//85;//190;//164;//21;//158;//0;
+int ballLowerH = 7;//115;//0;//158;//0;//157;//148;//0;//0;//0;//0;//0;
+int ballLowerS = 160;//145;//177;//72;//218;//133;//58;//187;//137;//189;//31;//0;
+int ballLowerV = 209;//144;//194;//102;//96;//85;//190;//164;//21;//158;//0;
 // BALL LOWER
 //0
 //189
@@ -49,7 +53,7 @@ int upperH=42;//60;//47;//47;//47;//47;//30;//30;//31;//23;
 int upperS=255;//255;//255;//255;//255;//255;//250;//255;//256;//220;
 int upperV=255;//255;//255;//255;//175;//255;//255;//255;//256;//178;
 
-int ballUpperH = 255;//255;//83;//203;//5;//187;//255;//13;//21;//13;//256;//255;
+int ballUpperH = 16;//255;//83;//203;//5;//187;//255;//13;//21;//13;//256;//255;
 int ballUpperS = 255;//255;//255;//255;//253;//192;//255;//255;//256;//255;//108;//255;
 int ballUpperV = 255;//255;//255;//255;//222;//141;//255;//255;//241;//255;//256;//255;
 
@@ -63,7 +67,7 @@ int kernel_size = 3;
 const char* window_name = "Edge Map";
 
 
-int pixels_to_black_out = 160;
+int pixels_to_black_out = 0;
 
 
 int action = WAIT;
@@ -117,7 +121,7 @@ void Vision::init(MotorController& controller) {
 	motorController = &controller;
 	cap = setup();
 	setwindowSettings();
-	calibrateThresholds();
+//	calibrateThresholds();
 
 	// Initialize the arrays
 	for (int i = 0; i < history_size; i++) {
@@ -152,7 +156,9 @@ Mat Vision::grabFrame() {
 	Mat frame;
 	cap.read(frame);
 	flip(frame, frame, 0);
-	imshow("Ball", frame);
+	if (visionDisplayEnabled) {
+		imshow("Ball", frame);
+	}
 	return frame;
 }
 
@@ -228,7 +234,10 @@ int Vision::getBallX() {
 	return result + getRobotX();
 }
 int Vision::getBallDistance() {
-	return (int)averageOf(ball_distance, history_size);
+	if (knowsBallPosition()) {
+		return (int)averageOf(ball_distance, history_size);
+	}
+	else return 1000;
 }
 void Vision::updateRobotTheta(double dTheta) {
 	// Add the estimated rotation to previous rotation estimation
@@ -287,7 +296,6 @@ void Vision::calibrateThresholds() {
 	cvCreateTrackbar("LowerV", "Ball", &lowerV, 255, NULL);
 	cvCreateTrackbar("UpperV", "Ball", &upperV, 255, NULL);
 
-//	cvCreateTrackbar("Pixels", "Ball", &pixels_to_black_out, 480, NULL);
 
 	// Keep updating the image with the current thresholds until the user presses 'g'
 	while ((char)waitKey(80) != 'g') {
@@ -296,7 +304,9 @@ void Vision::calibrateThresholds() {
 		Mat preprocessed = preprocess(frame);
 
 		// Show the thresholded image
-		imshow("Goal Thresholding", preprocessed);
+		if (visionDisplayEnabled) {
+			imshow("Goal Thresholding", preprocessed);
+		}
 	}
 
 	// Once the goal has been thresholded, we no longer need the frame
@@ -332,7 +342,9 @@ void Vision::calibrateThresholds() {
 		inRange(imgHSV, Scalar(ballLowerH, ballLowerS, ballLowerV), Scalar(ballUpperH, ballUpperS, ballUpperV), imgThresh);
 
 		// Show the thresholded image
-		imshow("Ball Thresholding", imgThresh);
+		if (visionDisplayEnabled) {
+			imshow("Ball Thresholding", imgThresh);
+		}
 	}
 
 	// Once the ball has been thresholded, we no longer need the frame
@@ -353,13 +365,16 @@ void Vision::setAction(int newAction) {
 bool Vision::knowsBallPosition() {
 	bool result = true;
 
+//	std:: cout << "Ball distance values: ";
 	// If any of the distance indexes are 0, we don't have enough information to say we know where the ball is
 	for (int i = 0; i < history_size; i++) {
-		if (ball_distance[i] == 0) {
+		if (ball_distance[i] <= 0) {
 			result = false;
 			break;
 		}
+//		std::cout << "(" << ball_distance[i] << ") ";
 	}
+//	std::cout << std::endl;
 	return result;
 }
 
@@ -438,8 +453,26 @@ VideoCapture Vision::setup() {
 	/// Declare variables
 	Mat src;
 
+	bool web_zero = true;
+
 	// To open live webcam
 	VideoCapture cap(0);
+	VideoCapture cap2(1);
+
+
+	Mat test;
+	if (!cap.read(test)) {
+		std::cout << "Switching to cap(1)" << std::endl;
+		cap.release();
+		web_zero = false;
+
+
+		if (!cap2.read(test)) {
+			std::cout << "Is the webcam connected? If so, it's not video0 or video1.\n" <<
+					"\nExiting program" << std::endl;
+			exit(1);
+		}
+	}
 
 	// To open file
 	//VideoCapture cap("/home/unicorn/Videos/Webcam_view_goal.webm");
@@ -448,7 +481,13 @@ VideoCapture Vision::setup() {
 	setwindowSettings();
 
 	// Return the VideoCapture
-	return cap;
+
+	if (web_zero) {
+		return cap;
+	}
+	else {
+		return cap2;
+	}
 }
 
 int Vision::getAction() {
@@ -517,7 +556,10 @@ void Vision::reduceConfidence(double *vec, double reduction) {
 void Vision::setwindowSettings(){
 
 	// Create two windows
-	cvNamedWindow("Ball"/*, WINDOW_NORMAL*/);
+	if (visionDisplayEnabled) {
+		cvNamedWindow("Ball"/*, WINDOW_NORMAL*/);
+//		cvCreateTrackbar("Searching speed", "Ball", &searching_speed, 1023, NULL);
+	}
 //	cvNamedWindow("imgThresh", WINDOW_NORMAL);
 //	cvCreateTrackbar("Vision", "Ball", &vision, 20, NULL);
 //	cvCreateTrackbar("Motions", "Ball", &motorTime, 20, NULL);
@@ -571,13 +613,17 @@ Mat Vision::preprocess(Mat original) {
 	Mat imgHSV = temp.clone();
 	cvtColor(temp, imgHSV, CV_BGR2HSV);
 
-	imshow("IMG HSV", imgHSV);
+	if (visionDisplayEnabled) {
+		imshow("IMG HSV", imgHSV);
+	}
 
 	// Get the thresholded image
 	Mat imgThresh = GetThresholdedImage(imgHSV);
 
 	// Show the thresholded image
-	imshow("imgThresh", imgThresh);
+	if (visionDisplayEnabled) {
+		imshow("imgThresh", imgThresh);
+	}
 
 	// Detect the edges using Canny Edge Detection
 	Mat canny;
@@ -1261,9 +1307,9 @@ double Vision::getAngleFromCenter(double known, double observed, double d) {
 double Vision::detectBallDistance(Rect boundRect){
 
 	// Create the color white
-	Scalar color(255,255,255);
+//	Scalar color(255,255,255);
 
-	// Determine the number of pixels tall the bounding box is
+	//Determine the number of pixels tall the bounding box is
 	double pixels = getDistance(Point(boundRect.x, boundRect.y), Point(boundRect.x + boundRect.width, boundRect.y));
 
 	// Set the distance to a flagged value so we can determine if we really know the distance
@@ -1273,6 +1319,14 @@ double Vision::detectBallDistance(Rect boundRect){
 	if (pixels > 0 && pixels < 800) {
 		distance = getDistanceFromCamera(BALL_DIAMETER / pixels);
 	}
+
+//	double distance = DOUBLE_FLAG;
+//	std::cout << "Determining The Nominator" << std::endl;
+//	double denominator = tan(toRadians(/*90-*/motorController->getHeadDownAngle()/*pixels_to_black_out*/));
+//	std::cout << "Denominator = " << denominator << std::endl;
+//	if (denominator != 0) {
+//		distance = ((double)MUL8_HEIGHT_TO_WEBCAM)/denominator;
+//	}
 
 	// Return the value for distance
 	return distance;
@@ -1543,6 +1597,28 @@ Rect Vision::processBall(Mat frame) {
 	medianBlur(frame, imgHSV, kernel_size);
 	cvtColor(frame, imgHSV, CV_BGR2HSV); //Change the color format from BGR to HSV
 
+	double headAngle = motorController->getHeadDownAngle();
+
+	// TODO For testing purposes only
+		if (headAngle > 90 || headAngle < 0) {
+			headAngle = 0;
+		}
+
+		int maskPixelHeight = 160 - (8 * headAngle);
+		if (maskPixelHeight < 0) {
+			maskPixelHeight = 0;
+		}
+	//
+	//	Mat mask(temp.rows, temp.cols, );
+	//	mask.zeros(temp.rows, temp.cols, CV_8UC1);
+	//
+		Rect rect;
+		rect.x = 0;
+		rect.y = 0;
+		rect.width = imgHSV.cols;
+		rect.height = maskPixelHeight;
+
+		rectangle(imgHSV, rect, Scalar(0, 0, 0), -1, 8, 0);
 	// Get the thresholded image
 	Mat imgThresh;
 	inRange(imgHSV, Scalar(ballLowerH, ballLowerS, ballLowerV), Scalar(ballUpperH, ballUpperS, ballUpperV), imgThresh);
@@ -1677,9 +1753,14 @@ void Vision::nextFrame() {
 	sprintf(text, "Coordinates: (%d, %d)", position.x, position.y);
 	putText(frame, text, Point(10, 20), FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(0, 255, 255), 1, CV_AA);
 
+	sprintf(text, "Distance to ball: %d", getBallDistance());
+	putText(frame, text, Point(10, 100), FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(0, 255, 255), 1, CV_AA);
+
 	// Wait allows OpenCV to update the image
 	waitKey(1);
-	imshow( "Ball", /*imgDraw*/ /*grey*/ /*preprocessedImg*/ frame);
+	if (visionDisplayEnabled) {
+		imshow( "Ball", /*imgDraw*/ /*grey*/ /*preprocessedImg*/ frame);
+	}
 	//    }
 }
 
@@ -1699,32 +1780,32 @@ void Vision::center_goal(Mat frame) {
 	if (boundRect.center.x >= 0) {
 		if (boundRect.center.x < 213/*310*/) {
 			if (boundRect.center.y < 160/*230*/) {
-				motorController->moveHead(MUL8_HEAD_UP_RIGHT, 25);
+				motorController->moveHead(MUL8_HEAD_UP_RIGHT, searching_speed);
 			}
 			else if (boundRect.center.y > 320/*250*/) {
-				motorController->moveHead(MUL8_HEAD_DOWN_RIGHT, 25);
+				motorController->moveHead(MUL8_HEAD_DOWN_RIGHT, searching_speed);
 			}
 			else {
-				motorController->moveHead(MUL8_HEAD_RIGHT, 25);
+				motorController->moveHead(MUL8_HEAD_RIGHT, searching_speed);
 			}
 		}
 		else if (boundRect.center.x > 427/*330*/) {
 			if (boundRect.center.y < 160/*230*/) {
-				motorController->moveHead(MUL8_HEAD_UP_LEFT, 25);
+				motorController->moveHead(MUL8_HEAD_UP_LEFT, searching_speed);
 			}
 			else if (boundRect.center.y > 320/*250*/) {
-				motorController->moveHead(MUL8_HEAD_DOWN_LEFT, 25);
+				motorController->moveHead(MUL8_HEAD_DOWN_LEFT, searching_speed);
 			}
 			else {
-				motorController->moveHead(MUL8_HEAD_LEFT, 25);
+				motorController->moveHead(MUL8_HEAD_LEFT, searching_speed);
 			}
 		}
 		else {
 			if (boundRect.center.y < 160/*230*/) {
-				motorController->moveHead(MUL8_HEAD_UP, 25);
+				motorController->moveHead(MUL8_HEAD_UP, searching_speed);
 			}
 			else if (boundRect.center.y > 320/*250*/) {
-				motorController->moveHead(MUL8_HEAD_DOWN, 25);
+				motorController->moveHead(MUL8_HEAD_DOWN, searching_speed);
 			}
 			else {
 				if (motorController->headLeftRightIsMoving() || motorController->headUpDownIsMoving()) {
@@ -1781,17 +1862,44 @@ void Vision::center_ball(Mat frame) {
 			if (centerY < /*160*/230) {
 				motorController->moveHead(MUL8_HEAD_UP, speed);
 			}
-			else if (centerY > /*320*/250 && motorController->readMotorPosition(24) < 400) {
-				// The ball is on the ground right by the robot
-				if (motorController->headLeftRightIsMoving() || motorController->headUpDownIsMoving()) {
-					motorController->stopHead();
+			else if (motorController->readMotorPosition(24) < 510) {
+
+
+				if (centerY > /*320*/250 && centerY < 365) {
+					// The ball is on the ground right by the robot
+					if (motorController->headLeftRightIsMoving() || motorController->headUpDownIsMoving()) {
+						motorController->stopHead();
+					}
+					// This is the measured distance from the camera to the ball when it's located at MUL8's feet
+					std::cout << "I am setting the ball distance to 75" << std::endl;
+					ball_distance[ball_index] = 75;
+					ball_index = (ball_index + 1) % history_size;
 				}
-				// This is the measured distance from the camera to the ball when it's located at MUL8's feet
-				ball_distance[ball_index] = 62;
-				ball_index = (ball_index + 1) % history_size;
+				else if (centerY > 365 && centerY < 440) {
+					// The ball is on the ground right by the robot
+					if (motorController->headLeftRightIsMoving() || motorController->headUpDownIsMoving()) {
+						motorController->stopHead();
+					}
+					// This is the measured distance from the camera to the ball when it's located at MUL8's feet
+					ball_distance[ball_index] = 65;
+					std::cout << "I set the ball distance to 65" << std::endl;
+					ball_index = (ball_index + 1) % history_size;
+				}
+				else if (centerY >= 440) {
+					// The ball is on the ground right by the robot
+					if (motorController->headLeftRightIsMoving() || motorController->headUpDownIsMoving()) {
+						motorController->stopHead();
+					}
+					// This is the measured distance from the camera to the ball when it's located at MUL8's feet
+					ball_distance[ball_index] = 55;
+					std::cout << "I set the ball distance to 55" << std::endl;
+					ball_index = (ball_index + 1) % history_size;
+				}
+
 			}
 			else if (centerY >/* 320*/250) {
 				motorController->moveHead(MUL8_HEAD_DOWN, speed);
+//				std::cout << "I am going to detect the ball distance" << std::endl;
 				ball_distance[ball_index] = detectBallDistance(centerRec);
 				ball_index = (ball_index + 1) % history_size;
 			}
@@ -1799,6 +1907,7 @@ void Vision::center_ball(Mat frame) {
 				if (motorController->headLeftRightIsMoving() || motorController->headUpDownIsMoving()) {
 					motorController->stopHead();
 				}
+//				std::cout << "I am going to detect the ball distance" << std::endl;
 				ball_distance[ball_index] = detectBallDistance(centerRec);
 				ball_index = (ball_index + 1) % history_size;
 			}
@@ -1883,19 +1992,19 @@ void Vision::search_for_goal(Mat frame) {
 	else {
 		// Here we implement a searching algorithm since we don't know where the goal is
 		if (!headLeft) {
-			motorController->moveHead(MUL8_HEAD_LEFT, 25);
+			motorController->moveHead(MUL8_HEAD_LEFT, searching_speed);
 			if (!motorController->headLeftRightIsMoving()) {
 				headLeft = true;
 			}
 		}
 		else if (!headRight) {
-			motorController->moveHead(MUL8_HEAD_RIGHT, 25);
+			motorController->moveHead(MUL8_HEAD_RIGHT, searching_speed);
 			if (!motorController->headLeftRightIsMoving()) {
 				headRight = true;
 			}
 		}
 		else if (!headUp) {
-			motorController->moveHead(MUL8_HEAD_UP, 25);
+			motorController->moveHead(MUL8_HEAD_UP, searching_speed);
 			if (!motorController->headUpDownIsMoving()) {
 				headLeft = false;
 				headRight = false;
@@ -1903,7 +2012,7 @@ void Vision::search_for_goal(Mat frame) {
 			}
 		}
 		else if (!headDown) {
-			motorController->moveHead(MUL8_HEAD_DOWN, 25);
+			motorController->moveHead(MUL8_HEAD_DOWN, searching_speed);
 			if (!motorController->headUpDownIsMoving()) {
 				headLeft = false;
 				headRight = false;
@@ -1911,9 +2020,10 @@ void Vision::search_for_goal(Mat frame) {
 			}
 		}
 		else {
-			motorController->moveHead(MUL8_HEAD_CENTER, 25);
+			motorController->moveHead(MUL8_HEAD_CENTER, searching_speed);
 		}
 	}
+
 }
 
 void Vision::search_for_ball(Mat frame) {
@@ -1929,19 +2039,19 @@ void Vision::search_for_ball(Mat frame) {
 	else {
 		// Here we implement a searching algorithm since we don't know where the ball is
 		if (!headLeft) {
-			motorController->moveHead(MUL8_HEAD_LEFT, 25);
+			motorController->moveHead(MUL8_HEAD_LEFT, searching_speed);
 			if (!motorController->headLeftRightIsMoving()) {
 				headLeft = true;
 			}
 		}
 		else if (!headRight) {
-			motorController->moveHead(MUL8_HEAD_RIGHT, 25);
+			motorController->moveHead(MUL8_HEAD_RIGHT, searching_speed);
 			if (!motorController->headLeftRightIsMoving()) {
 				headRight = true;
 			}
 		}
 		else if (!headDown) {
-			motorController->moveHead(MUL8_HEAD_DOWN, 25);
+			motorController->moveHead(MUL8_HEAD_DOWN, searching_speed);
 			if (!motorController->headUpDownIsMoving()) {
 				headLeft = false;
 				headRight = false;
@@ -1949,7 +2059,7 @@ void Vision::search_for_ball(Mat frame) {
 			}
 		}
 		else if (!headUp) {
-			motorController->moveHead(MUL8_HEAD_UP, 25);
+			motorController->moveHead(MUL8_HEAD_UP, searching_speed);
 			if (!motorController->headUpDownIsMoving()) {
 				headLeft = false;
 				headRight = false;
@@ -1957,35 +2067,44 @@ void Vision::search_for_ball(Mat frame) {
 			}
 		}
 		else {
-			motorController->moveHead(MUL8_HEAD_CENTER, 25);
+			motorController->moveHead(MUL8_HEAD_CENTER, searching_speed);
 		}
 	}
 }
 
 std::string Vision::getMotionRequest() {
-	Mat frame;
-	cap.read(frame);
+//	Mat frame;
+//	cap.read(frame);
 	std::string result;
-
-	Rect ball = processBall(frame);
-	Point ballCenter;
-	ballCenter.x = ball.x + ball.width;
-	ballCenter.y = ball.y + ball.height;
-
-	if (ball.x < 213) {
-		result = "SSr";
-	}
-	else if (ball.x > 427) {
-		result = "SSl";
-	}
-	else {
-		if (ball.x < 320) {
-			result = "KickR";
+//
+//	Rect ball = processBall(frame);
+//	Point ballCenter;
+//	ballCenter.x = ball.x + ball.width;
+//	ballCenter.y = ball.y + ball.height;
+//
+//	if (ball.x < 213) {
+//		result = "SSr";
+//	}
+//	else if (ball.x > 427) {
+//		result = "SSl";
+//	}
+//	else {
+//		if (ball.x < 320) {
+//			result = "KickR";
+//		}
+//		else {
+//			result = "KickL";
+//		}
+		double headAngle = motorController->getHeadAngle();
+		if (headAngle < 0) {
+			result = "KickL";
+			std::cout << "Requesting KickL" << std::endl;
 		}
 		else {
-			result = "KickL";
+			result = "KickR";
+			std::cout << "Requesting KickR" << std::endl;
 		}
-	}
+//	}
 	return result;
 
 }

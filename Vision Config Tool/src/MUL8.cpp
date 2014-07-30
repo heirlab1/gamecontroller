@@ -14,6 +14,7 @@
 int my_team = 1;
 #define MY_NUMBER	0
 
+#define BATTERY_VOLTAGE_CUTOFF		11 // FOR ROBOCUP
 
 MotorController motorController;
 Vision vis;
@@ -21,7 +22,7 @@ GameController gameController;
 int MUL8_action = 0;
 int MUL8_state = -1;
 
-int currentThreshold = 80;
+int currentThreshold = 85;
 int firstThreshold = 80;
 int secondThreshold = 70;
 
@@ -31,7 +32,6 @@ bool MUL8_set = false;
 bool MUL8_play_start = false;
 bool MUL8_finished = false;
 bool second_half = false;
-
 
 /* Boolean used for search function */
 bool mul8_knows_position = false;
@@ -56,32 +56,32 @@ bool MUL8::search() {
 	vis.nextFrame();
 
 	while (!done) {
+		//		std::cout << "Entered loop" << std::endl;
 		if (!position && vis.knowsRobotPosition()) {
 			vis.setAction(SEARCH_FOR_BALL);
 			std::cout << "Searching for Ball" << std::endl;
 			position = true;
-		}
-		else if (vis.knowsBallPosition()) {
+		} else if (vis.knowsBallPosition()) {
 			std::cout << "Searching for both" << std::endl;
 			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
 			done = true;
 		}
 
-		gameController.getGCData(myData);
-
-		if (myData.secondaryTime == 0) {
-			done = true;
-		}
+//		gameController.getGCData(myData);
+//
+//		if (myData.secondaryTime == 0) {
+//			done = true;
+//		}
 
 		int c = waitKey(1);
 
-		if ((char)c == 27) {
+		if ((char) c == 27) {
 			done = true;
 		}
 
 		vis.nextFrame();
 
-//		done = true;
+		//		done = true;
 	}
 	// Robot knows where both the ball and the field are
 	//	std::cout << "Vision knows where it is, and where the ball is.\n" <<
@@ -102,9 +102,11 @@ bool MUL8::search() {
 bool MUL8::walkTowardsBall(int distance_to_ball) {
 	bool done = false;
 
-	std::cout << "Walking towards the ball time" << std::endl;
+	//std::cout << "Walking towards the ball time" << std::endl;
 
-	vis.setAction(SEARCH_FOR_BALL);
+	if (vis.getAction() != SEARCH_FOR_BALL && vis.getAction() != CENTER_BALL) {
+		vis.setAction(SEARCH_FOR_BALL);
+	}
 	//	double temp_time = getUnixTime();
 	// Search for ball for 6 seconds
 	//	while ((getUnixTime()-temp_time) < 6) {
@@ -112,56 +114,58 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 	//	}
 	//	temp_time = getUnixTime();
 
-//	while (vis.getAction() != CENTER_BALL) {
+	//	while (vis.getAction() != CENTER_BALL) {
 	for (int i = 0; i < 5; i++) {
 		vis.nextFrame();
 	}
 
 	motorController.stopHead();
-//	}
+	//	}
 
 	if (vis.getAction() == CENTER_BALL) {
-
 
 		//	double waitTimer = getUnixTime();
 		// TODO I forgot how the robot's X and Y are oriented, might have to change some vision code if this doesn't work
 		//	while (!done) {
 
-		double turningTheta = motorController.getHeadAngle()*-1;
+		double turningTheta = motorController.getHeadAngle() * -1;
 		double previous_distance = vis.getBallDistance();
 
 		// TODO We assume here that each turn left motion turns us approximately 45 degrees
 		if (turningTheta > 23) {
-			std::cout << "Robot turning left. New theta = " << vis.getRobotTheta() << std::endl;
+			std::cout << "Robot turning left. New theta = "
+					<< vis.getRobotTheta() << std::endl;
 			if (motorController.getMotion() == "W1") {
 				motorController.setMotion("W1i");
-			}
-			else if (motorController.getMotion() == "W2") {
+			} else if (motorController.getMotion() == "W2") {
 				motorController.setMotion("W2i");
 			}
 			doMotion();
 			// Don't need to update odometry as these motions should not affect any odometry data
 			motorController.setMotion("Tl30");
 			doMotion();
-			vis.updateRobotPosition(ODOMETRY_TL30_DISTANCE, ODOMETRY_TL30_THETA);
+			vis.updateRobotPosition(ODOMETRY_TL30_DISTANCE,
+			ODOMETRY_TL30_THETA);
 			vis.updateRobotTheta(ODOMETRY_TL30_TURN);
 		}
 		// TODO We assume here that each turn right motion turns us approximately 45 degrees
 		else if (turningTheta < -23) {
-			std::cout << "Robot turning right. New theta = " << vis.getRobotTheta() << std::endl;
+			std::cout << "Robot turning right. New theta = "
+					<< vis.getRobotTheta() << std::endl;
 			if (motorController.getMotion() == "W1") {
 				motorController.setMotion("W1i");
-			}
-			else if (motorController.getMotion() == "W2") {
+			} else if (motorController.getMotion() == "W2") {
 				motorController.setMotion("W2i");
 			}
 			doMotion();
 			std::cout << "Setting motion to TR" << std::endl;
-			motorController.setMotion("Tr30");
+			motorController.setMotion("Tr15");
 			doMotion();
-			vis.updateRobotPosition(ODOMETRY_TR30_DISTANCE, ODOMETRY_TR30_THETA);
-			vis.updateRobotTheta(ODOMETRY_TR30_TURN);
-			std::cout << "Robot turning right. New theta = " << vis.getRobotTheta() << std::endl;
+			vis.updateRobotPosition(ODOMETRY_TR15_DISTANCE,
+			ODOMETRY_TR15_THETA);
+			vis.updateRobotTheta(ODOMETRY_TR15_TURN);
+			std::cout << "Robot turning right. New theta = "
+					<< vis.getRobotTheta() << std::endl;
 		}
 		// Here we assume that we are facing in the correct direction, so let's walk forward
 		else if (previous_distance > distance_to_ball) { //
@@ -169,13 +173,15 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			if (currMo == "Wi") {
 				std::cout << "Position W0_m" << std::endl;
 				motorController.setMotion("W0_m");
-				vis.updateRobotPosition(ODOMETRY_W0_M_DISTANCE, ODOMETRY_W0_M_THETA);
+				vis.updateRobotPosition(ODOMETRY_W0_M_DISTANCE,
+				ODOMETRY_W0_M_THETA);
 				vis.updateRobotTheta(ODOMETRY_W0_M_TURN);
 				//			waitTimer = getUnixTime();
-			}
-			else if (currMo == "W0_m"/* && ((getUnixTime()-waitTimer) > 1)*/) {
+			} else if (currMo
+					== "W0_m"/* && ((getUnixTime()-waitTimer) > 1)*/) {
 				motorController.setMotion("W2");
-				vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
+				vis.updateRobotPosition(ODOMETRY_W2_DISTANCE,
+				ODOMETRY_W2_THETA);
 				vis.updateRobotTheta(ODOMETRY_W2_TURN);
 				std::cout << "Position W2" << std::endl;
 			}
@@ -184,17 +190,17 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			//		}
 			else if (currMo == "W1") {
 				motorController.setMotion("W2");
-				vis.updateRobotPosition(ODOMETRY_W2_DISTANCE, ODOMETRY_W2_THETA);
+				vis.updateRobotPosition(ODOMETRY_W2_DISTANCE,
+				ODOMETRY_W2_THETA);
 				vis.updateRobotTheta(ODOMETRY_W2_TURN);
 				std::cout << "Position W2" << std::endl;
-			}
-			else if (currMo == "W2") {
+			} else if (currMo == "W2") {
 				motorController.setMotion("W1");
-				vis.updateRobotPosition(ODOMETRY_W1_DISTANCE, ODOMETRY_W1_THETA);
+				vis.updateRobotPosition(ODOMETRY_W1_DISTANCE,
+				ODOMETRY_W1_THETA);
 				vis.updateRobotTheta(ODOMETRY_W1_TURN);
 				std::cout << "Position W1" << std::endl;
-			}
-			else {
+			} else {
 				std::cout << "Old motion was " << currMo << std::endl;
 				motorController.setMotion("Wi");
 				// No need to update odometry, as no foot movements are involved
@@ -202,10 +208,11 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			}
 			doMotion();
 			//				motorController.setMotion("Walk Forward");
-			std::cout << "Robot walking forward. New coordinates: (" << vis.getRobotX() << ", " << vis.getRobotY() << ")" << std::endl;
+			std::cout << "Robot walking forward. New coordinates: ("
+					<< vis.getRobotX() << ", " << vis.getRobotY() << ")"
+					<< std::endl;
 			std::cout << "Distance to ball: " << previous_distance << std::endl;
-		}
-		else {
+		} else {
 			// We are within 1 meter of the ball
 			//should call getBehindBall();
 			// At this point, we would determine how to move, whether to move to the far side of the ball, or walk forward and kick it
@@ -214,8 +221,7 @@ bool MUL8::walkTowardsBall(int distance_to_ball) {
 			if (currMo == "W2") {
 				motorController.setMotion("W2i");
 				std::cout << "Returning from Position W2" << std::endl;
-			}
-			else if (currMo == "W1") {
+			} else if (currMo == "W1") {
 				motorController.setMotion("W1i");
 				std::cout << "Returning from Position W1" << std::endl;
 			}
@@ -238,10 +244,10 @@ bool MUL8::getBehindBall() {
 
 	double theta = vis.getRobotTheta();
 
-	std::cout << "Received Vision reference has theta of " << theta << std::endl;
+	std::cout << "Received Vision reference has theta of " << theta
+			<< std::endl;
 
 	std::string motion;
-
 
 	// If theta is negative, we have to side step right
 	if (theta < -7) {
@@ -253,15 +259,15 @@ bool MUL8::getBehindBall() {
 	}
 
 	// Need to keep side stepping and turning until our theta is zero
-	if (theta < -12 || theta > 12 ) {
+	if (theta < -12 || theta > 12) {
 		motorController.setMotion(motion);
 		doMotion();
 		if (motion == "SSr") {
 			vis.updateRobotPosition(ODOMETRY_SSR_DISTANCE, ODOMETRY_SSR_THETA);
 			vis.updateRobotTheta(ODOMETRY_SSR_TURN);
-		}
-		else {
-			vis.updateRobotPosition(ODOMETRY_SSL_LONG_DISTANCE, ODOMETRY_SSL_LONG_THETA);
+		} else {
+			vis.updateRobotPosition(ODOMETRY_SSL_LONG_DISTANCE,
+			ODOMETRY_SSL_LONG_THETA);
 			vis.updateRobotTheta(ODOMETRY_SSL_LONG_TURN);
 		}
 		double robot_head_theta = motorController.getHeadAngle();
@@ -269,16 +275,14 @@ bool MUL8::getBehindBall() {
 			turn(robot_head_theta);
 			//			doMotion(vis, motorController);
 			robot_head_theta = motorController.getHeadAngle();
-		}
-		else if (robot_head_theta > 7) {
+		} else if (robot_head_theta > 7) {
 			turn(robot_head_theta);
 			//			doMotion(vis, motorController);
 			robot_head_theta = motorController.getHeadAngle();
 		}
 		theta = vis.getRobotTheta();
 		std::cout << "My new theta is: " << theta << std::endl;
-	}
-	else {
+	} else {
 		result = true;
 		std::cout << "Got behind ball!" << std::endl;
 
@@ -301,8 +305,7 @@ bool MUL8::alignToKick() {
 		doMotion();
 		motion = vis.getMotionRequest();
 		result = false;
-	}
-	else {
+	} else {
 		motorController.moveHead(MUL8_HEAD_UP, 500);
 		motorController.setMotion(motion);
 		doMotion();
@@ -316,7 +319,7 @@ bool MUL8::alignToKick() {
 
 bool MUL8::checkLocation() {
 
-//	bool result = false;
+	//	bool result = false;
 
 	vis.nextFrame();
 	double robotTheta = vis.getRobotTheta();
@@ -332,8 +335,7 @@ bool MUL8::checkLocation() {
 			robotHeadTheta = motorController.getHeadAngle();
 		}
 		motorController.stopHead();
-	}
-	else {
+	} else {
 		while (robotHeadTheta < robotTheta) {
 			// MUL8 needs to turn head right in order to find the goal
 			motorController.moveHead(MUL8_HEAD_UP_RIGHT, 256);
@@ -359,7 +361,7 @@ bool MUL8::checkLocation() {
 			double robotAngle = vis.getRobotTheta();
 			std::cout << "Robot Theta: " << robotAngle << std::endl;
 
-			vis.updateRobotTheta(headAngle-robotAngle);
+			vis.updateRobotTheta(headAngle - robotAngle);
 
 			motorController.setMotorPosition(23, motor23pos, 256);
 			motorController.setMotorPosition(24, motor24pos, 256);
@@ -384,7 +386,7 @@ double MUL8::getUnixTime() {
 		return 0;
 	}
 
-	return (((double)tv.tv_sec) + (tv.tv_nsec / 1000000000.0));
+	return (((double) tv.tv_sec) + (tv.tv_nsec / 1000000000.0));
 }
 
 void MUL8::doMotion() {
@@ -403,14 +405,15 @@ void MUL8::doMotion() {
 			// Loop through vision until it's time to execute the next motion
 			startTime = getUnixTime();
 			currentTime = getUnixTime();
-			stepTime = motorController.getStepTime()+motorController.balance_slowdown;
-			stepTime -= 0.15;	// Subtract 150 mS to deal with frame processing time
+			stepTime = motorController.getStepTime()
+					+ motorController.balance_slowdown;
+			stepTime -= 0.15;// Subtract 150 mS to deal with frame processing time
 			do {
 				////gameController.getGCData(myData);
 				vis.nextFrame();
 				currentTime = getUnixTime();
 				//gameController.getGCData(myData);
-			} while ((currentTime-startTime) < stepTime);
+			} while ((currentTime - startTime) < stepTime);
 			break;
 		case MUL8_MOTION_FINISHED:
 			done = true;
@@ -419,53 +422,54 @@ void MUL8::doMotion() {
 	}
 }
 
-void MUL8::turn(int theta){
+void MUL8::turn(int theta) {
 
 	//gameController.getGCData(myData);
-	if(theta<0){
+	if (theta < 0) {
 		//turn left
-		if(theta<0 && theta>=-15){
+		if (theta < 0 && theta >= -15) {
 			//between 0 and -15
 			motorController.setMotion("Tl15");
-			vis.updateRobotPosition(ODOMETRY_TL15_DISTANCE, ODOMETRY_TL15_THETA);
+			vis.updateRobotPosition(ODOMETRY_TL15_DISTANCE,
+			ODOMETRY_TL15_THETA);
 			vis.updateRobotTheta(ODOMETRY_TL15_TURN);
-		}
-		else if(theta<-15 && theta>=-30){
+		} else if (theta < -15 && theta >= -30) {
 			//between -15 and -30
 			motorController.setMotion("Tl30");
-			vis.updateRobotPosition(ODOMETRY_TL30_DISTANCE, ODOMETRY_TL30_THETA);
+			vis.updateRobotPosition(ODOMETRY_TL30_DISTANCE,
+			ODOMETRY_TL30_THETA);
 			vis.updateRobotTheta(ODOMETRY_TL30_TURN);
-		}
-		else if(theta<-30 && theta>-45){
+		} else if (theta < -30 && theta > -45) {
 			//between -30 and -45
-			motorController.setMotion("Tl45");
-			vis.updateRobotPosition(ODOMETRY_TL45_DISTANCE, ODOMETRY_TL45_THETA);
+			motorController.setMotion("Tl30");
+			vis.updateRobotPosition(ODOMETRY_TL45_DISTANCE,
+			ODOMETRY_TL45_THETA);
 			vis.updateRobotTheta(ODOMETRY_TL45_TURN);
 		}
 	}
 
-	else if(theta>=0){
-		if(theta>=0 && theta<15){
+	else if (theta >= 0) {
+		if (theta >= 0 && theta < 15) {
 			//between 0 and 15
 			motorController.setMotion("Tr15");
-			vis.updateRobotPosition(ODOMETRY_TR15_DISTANCE, ODOMETRY_TR15_THETA);
+			vis.updateRobotPosition(ODOMETRY_TR15_DISTANCE,
+			ODOMETRY_TR15_THETA);
 			vis.updateRobotTheta(ODOMETRY_TR15_TURN);
-		}
-		else if(theta>=15 && theta<30){
+		} else if (theta >= 15 && theta < 30) {
 			//between 15 and 30
-			motorController.setMotion("Tr30");
-			vis.updateRobotPosition(ODOMETRY_TR30_DISTANCE, ODOMETRY_TR30_THETA);
-			vis.updateRobotTheta(ODOMETRY_TR30_TURN);
-		}
-		else if(theta>=30 && theta<45){
+			motorController.setMotion("Tr15");
+			vis.updateRobotPosition(ODOMETRY_TR15_DISTANCE,
+			ODOMETRY_TR15_THETA);
+			vis.updateRobotTheta(ODOMETRY_TR15_TURN);
+		} else if (theta >= 30 && theta < 45) {
 			//between 30 and 45
-			motorController.setMotion("Tr30");
-			vis.updateRobotPosition(ODOMETRY_TR30_DISTANCE, ODOMETRY_TR30_THETA);
-			vis.updateRobotTheta(ODOMETRY_TR30_TURN);
+			motorController.setMotion("Tr15");
+			vis.updateRobotPosition(ODOMETRY_TR15_DISTANCE,
+			ODOMETRY_TR15_THETA);
+			vis.updateRobotTheta(ODOMETRY_TR15_TURN);
 
 		}
-	}
-	else{
+	} else {
 		//do nothing?
 	}
 	//gameController.getGCData(myData);
@@ -477,6 +481,10 @@ void MUL8::init() {
 		motorController.init();
 		vis.init(motorController);
 		motorController.setMotion("Wi");
+		motorController.enableMotor(23);
+		motorController.setMotorPosition(23, 2048, 25);
+		motorController.setMotorPosition(24, M24_CCW, 25);
+		motorController.setTorqueLimit(24, 300);
 		motorController.step(false);
 		vis.setAction(SEARCH_FOR_GOAL);
 		MUL8_initialized = true;
@@ -498,18 +506,25 @@ void MUL8::set() {
 }
 
 void MUL8::play() {
+	//	setAction(MUL8_ACTION_SEARCH);
 	if (!MUL8_play_start) {
 		std::cout << "Let's play!!!!!" << std::endl;
 		MUL8_play_start = true;
-		if (myData.kickOffTeam != my_team) {
-			setAction(MUL8_ACTION_SEARCH);
-		}
-		else {
-			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
-		}
+		//		if (myData.kickOffTeam != my_team) {
+		//			setAction(MUL8_ACTION_SEARCH);
+		//		}
+		//		else {
+		setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
+		//		}
 	}
 	//	setAction(MUL8_ACTION_SEARCH);
 	actionStep();
+	double batteryVolts = motorController.getBatteryVoltage();
+
+	if (batteryVolts < BATTERY_VOLTAGE_CUTOFF) {
+		motorController.setMotion("BatteryDance");
+		doMotion();
+	}
 }
 
 void MUL8::penalty() {
@@ -538,7 +553,6 @@ void MUL8::finish() {
 }
 
 void MUL8::actionStep() {
-	//gameController.getGCData(myData);
 	switch (MUL8_action) {
 	case MUL8_ACTION_SEARCH:
 		if (search()) {
@@ -547,17 +561,17 @@ void MUL8::actionStep() {
 		setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
 		break;
 	case MUL8_ACTION_WALK_TOWARDS_BALL:
-		if(walkTowardsBall(currentThreshold)) {
-			if(currentThreshold == firstThreshold) {
-				setAction(MUL8_ACTION_CHECK_LOCATION);
-			}
-			else {
+		if (walkTowardsBall(currentThreshold)) {
+			//			std::cout << "distance to ball" << vis.getBallDistance();
+			if (currentThreshold == firstThreshold) {
+				currentThreshold = secondThreshold;
+			} else {
 				setAction(MUL8_ACTION_ALIGN_TO_KICK);
 			}
 		}
 		break;
 	case MUL8_ACTION_ALIGN_TO_KICK:
-		if(alignToKick()) {
+		if (alignToKick()) {
 			setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
 			currentThreshold = firstThreshold;
 		}
@@ -577,7 +591,6 @@ void MUL8::actionStep() {
 	default:
 		break;
 	}
-	//gameController.getGCData(myData);
 }
 
 void MUL8::setAction(int new_action) {
@@ -589,24 +602,26 @@ void MUL8::setState(int new_state) {
 }
 
 void MUL8::step() {
-//	for (int i = 0; i < 10; i++) {
-		gameController.getGCData(myData);
+//	std::cout << "Getting GameController Data" << std::endl;
+////		for (int i = 0; i < 10; i++) {
+//	gameController.getGCData(myData);
+////		}
+//	std::cout << "Got GameContoller data" << std::endl;
+
+//	int MUL8_state = myData.state;
+//	int penalty_occured = myData.teams[my_team].players[0].penalty;
+//	if (!second_half && myData.firstHalf == 0) {
+//		second_half = true;
+//		MUL8_ready = false;
+//		MUL8_set = false;
+//		MUL8_play_start = false;
+//
+//		// Change my_team to be the other team number
+//		my_team = ((my_team + 1) % 2);
 //	}
+//	if (penalty_occured == 0) {
 
-	int MUL8_state = myData.state;
-	int penalty_occured = myData.teams[my_team].players[0].penalty;
-	if (!second_half && myData.firstHalf == 0) {
-		second_half = true;
-		MUL8_ready = false;
-		MUL8_set = false;
-		MUL8_play_start = false;
-
-		// Change my_team to be the other team number
-		my_team = ((my_team + 1) % 2);
-	}
-	if (penalty_occured == 0) {
-
-		switch(MUL8_state) {
+		switch (MUL8_state) {
 		case MUL8_STATE_INIT:
 			init();
 			break;
@@ -628,12 +643,12 @@ void MUL8::step() {
 		default:
 			break;
 		}
-	}
-
-	else {
-		penalty();
-	}
-
-	gameController.getGCData(myData);
+//	}
+//
+//	else {
+//		penalty();
+//	}
+//
+//	gameController.getGCData(myData);
 }
 

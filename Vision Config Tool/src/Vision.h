@@ -39,6 +39,9 @@
 #define GOAL_DEPTH					/*44.0*/	60.0  // FOR ROBOCUP
 #define GOAL_POST_WIDTH							10.0  // FOR ROBOCUP
 
+
+#define MUL8_HEIGHT_TO_WEBCAM					77.0  // FOR ROBOCUP
+
 #define UPPER_LEFT_CORNER			0
 #define UPPER_RIGHT_CORNER			1
 #define LOWER_LEFT_FRONT_CORNER		2

@@ -22,50 +22,14 @@ GameController::GameController() {
 
 
 
-	if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-	{
-		perror("Server-socket() sockfd error lol!");
-		exit(1);
-	}
-	else
-		//    printf("Server-socket() sockfd is OK...\n");
-
-		/* host byte order */
-		my_addr.sin_family = AF_INET;
-	/* short, network byte order */
-	my_addr.sin_port = htons(MYPORT);
-	/* automatically fill with my IP */
-	my_addr.sin_addr.s_addr = INADDR_ANY;
-	/* zero the rest of the struct */
-	memset(&(my_addr.sin_zero), '\0', 8);
-
-	if(bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1)
-	{
-		perror("Server-bind() error ");
-		exit(1);
-	}
-
-}
-
-GameController::~GameController() {
-	// TODO Auto-generated destructor stub
-	if(close(sockfd) != 0)
-		printf("Server-sockfd closing failed!\n");
-	else{
-		printf("Server-sockfd successfully closed!\n");
-	}
-}
-
-void GameController::getGCData(RoboCupGameControlData &myData){
-//
 //	if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 //	{
 //		perror("Server-socket() sockfd error lol!");
 //		exit(1);
 //	}
-//	else{
+//	else
 //		//    printf("Server-socket() sockfd is OK...\n");
-//	}
+//
 //		/* host byte order */
 //		my_addr.sin_family = AF_INET;
 //	/* short, network byte order */
@@ -80,6 +44,42 @@ void GameController::getGCData(RoboCupGameControlData &myData){
 //		perror("Server-bind() error ");
 //		exit(1);
 //	}
+
+}
+
+GameController::~GameController() {
+	// TODO Auto-generated destructor stub
+	if(close(sockfd) != 0)
+		printf("Server-sockfd closing failed!\n");
+	else{
+		printf("Server-sockfd successfully closed!\n");
+	}
+}
+
+void GameController::getGCData(RoboCupGameControlData &myData){
+
+	if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+	{
+		perror("Server-socket() sockfd error lol!");
+//		exit(1);
+	}
+	else{
+		//    printf("Server-socket() sockfd is OK...\n");
+	}
+		/* host byte order */
+		my_addr.sin_family = AF_INET;
+	/* short, network byte order */
+	my_addr.sin_port = htons(MYPORT);
+	/* automatically fill with my IP */
+	my_addr.sin_addr.s_addr = INADDR_ANY;
+	/* zero the rest of the struct */
+	memset(&(my_addr.sin_zero), '\0', 8);
+
+	if(bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr)) == -1)
+	{
+		perror("Server-bind() error ");
+//		exit(1);
+	}
 
 
 	//  else
@@ -185,10 +185,10 @@ void GameController::getGCData(RoboCupGameControlData &myData){
 
 		//}
 	}
-//	if(close(sockfd) != 0)
-//		printf("Server-sockfd closing failed!\n");
-//	else{
-////		printf("Server-sockfd successfully closed!\n");
-//	}
+	if(close(sockfd) != 0)
+		printf("Server-sockfd closing failed!\n");
+	else{
+//		printf("Server-sockfd successfully closed!\n");
+	}
 }
 

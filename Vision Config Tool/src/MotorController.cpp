@@ -22,7 +22,7 @@
 
 #include <dynamixel.h>
 
-balanceServer balance_server;
+//balanceServer balance_server;
 bool motionExecutionDisabled= false;//todo
 
 double lastClock, batteryClock;
@@ -180,12 +180,12 @@ void MotorController::initializeMotions() {
                 // Push the first number into the motor position. In [i=rows][j=columns], i is the step number of the motion we're in and j is the motor number
                 machineNames[i] = /*MOTIONS_PREPATH + */temp.substr(0, space);
 
-                std::cout << "Motion Path:\n\t" << machineNames[i] << std::endl;
+//                std::cout << "Motion Path:\n\t" << machineNames[i] << std::endl;
 
                 // Push the second number into the velocity position
                 friendlyNames[i] = temp.substr(space+1);
 
-                std::cout << "Friendly Name:\n\t" << friendlyNames[i] << std::endl;
+//                std::cout << "Friendly Name:\n\t" << friendlyNames[i] << std::endl;
 
                 // This way allows the motions to be overwritten, useful when adding new motions and re-initializing.
                 //here the parameters are the real file path and the friendly name for that file
@@ -257,12 +257,12 @@ void MotorController::initializeMotionQueues(){
                 // Push the first name into the machine name column.  i is the step number of the motion we're in
                 machineQueueNames[i] = /*MOTIONS_PREPATH + */temp.substr(0, space);
 
-                std::cout << "Motion Queue Path:\n\t" << machineQueueNames[i] << std::endl;
+//                std::cout << "Motion Queue Path:\n\t" << machineQueueNames[i] << std::endl;
 
                 // Push the second number into the velocity position
                 friendlyQueueNames[i] = temp.substr(space+1);
 
-                std::cout << "Friendly Queue Name:\n\t" << friendlyQueueNames[i] << std::endl;
+//                std::cout << "Friendly Queue Name:\n\t" << friendlyQueueNames[i] << std::endl;
 
                 // This way allows the motions to be overwritten, useful when adding new motions and re-initializing
                 motionQueues[friendlyQueueNames[i]] = getInitializedMotionQueue((std::string)(MOTIONS_PREPATH) + machineQueueNames[i], friendlyQueueNames[i]);
@@ -329,8 +329,8 @@ Motion MotorController::getInitializedMotion(std::string motion_file, std::strin
         std::stringstream(aString) >> tempMotion.num_motors;
 
 
-        std::cout << "Motion Contains "<< tempMotion.num_motors << " motors" <<std::endl;
-        std::cout << "Motion Contains "<< numSteps << " steps" <<std::endl;
+//        std::cout << "Motion Contains "<< tempMotion.num_motors << " motors" <<std::endl;
+//        std::cout << "Motion Contains "<< numSteps << " steps" <<std::endl;
 
 
         tempMotion.friendlyName = friendlyName;
@@ -452,7 +452,7 @@ MotionQueue MotorController::getInitializedMotionQueue(std::string motion_queue_
         getline(file, aString);                         // The first number in the file is the total number of steps
         std::stringstream(aString)>>numMotions;
 
-        std::cout << "Queue Contains "<< numMotions << " steps" <<std::endl;
+//        std::cout << "Queue Contains "<< numMotions << " steps" <<std::endl;
 
         tempMotionQueue.friendlyName = friendlyQueueName;
 
@@ -484,9 +484,9 @@ MotionQueue MotorController::getInitializedMotionQueue(std::string motion_queue_
                 // Push the second number into the velocity position
                 std::stringstream(aString.substr(space+1)) >> tempMotionQueue.pauseTime[i];
 
-                std::cout << "Motion "<< i << " added" <<std::endl;
+//                std::cout << "Motion "<< i << " added" <<std::endl;
         }
-        std::cout << "Queue Built ^\n "<<std::endl;
+//        std::cout << "Queue Built ^\n "<<std::endl;
         // Close the text file
         file.close();
 
@@ -572,7 +572,7 @@ void MotorController::executeNext(Motion motion) {
 
 		else if(motion.currentIndex==1){
 
-			std::cout<<"### SLOW DOWN LEAN: "<<balance_slowdown<<std::endl;
+//			std::cout<<"### SLOW DOWN LEAN: "<<balance_slowdown<<std::endl;
 
 			for(int j=0; j<motion.num_motors; j++){
 				data[j]= SPEED_CONSTANT*abs(currMo.motorPositions[motion.currentIndex-1][j]-currMo.motorPositions[motion.currentIndex][j])/(currMo.time[currMo.currentIndex]+balance_slowdown);
@@ -611,13 +611,13 @@ void MotorController::executeNext(Motion motion) {
 		sendSyncWrite(motors,  GOAL_POSITION, WORD, data);
 	}
 
-	for(int i= 0; i < active_joints; i++ ){
-		if(i==0){
-//			std::cout<<"\n"<< motors.size() <<" ACTIVE JOINTS! "<<std::endl;
-		}
-		std::cout<<" "<<motors[i];
-	}
-	std::cout<<"\n\n";
+//	for(int i= 0; i < active_joints; i++ ){
+//		if(i==0){
+////			std::cout<<"\n"<< motors.size() <<" ACTIVE JOINTS! "<<std::endl;
+//		}
+//		std::cout<<" "<<motors[i];
+//	}
+//	std::cout<<"\n\n";
 	// Reset the clock
 	lastClock = getUnixTime();
 }
@@ -670,43 +670,43 @@ int MotorController::step(bool isFalling) {
                                 //printTorqueReadings();
                                 //TODO check the temp of each motor and the battery level. Battery level is not very accurate
 
-                                if(checkBattery==1){
-                                        batteryLevel=0; //start fresh
-                                        dxl_write_byte(23, TORQUE_ENABLE, 0); //for neck pan motor disable torque
-                                        double batteryCheckSamples=5;
-                                        for(int i = 0; i<batteryCheckSamples; i++){
-                                                batteryLevel+= (double) (dxl_read_byte(23, 42)*.1);
-                                        }
-
-                                        std::cout <<std::endl<< "Battery Voltage ~ ";
-                                        std::cout.setf( std::ios::fixed, std:: ios::floatfield ); // floatfield set to fixed
-                                        std::cout << batteryLevel/batteryCheckSamples << "\n\n";
-                                        /*Battery readings here are across motors, not at the leads of the power source
-                                         *so the motors will read at about 0.5-0.7 V lower than the leads of the
-                                         *power source. The 14.8 V LiPo batteries that we are using cannot go below
-                                         *2.5V/cell. Our batteries have 4 cells, so the battery should not fall below 10V.
-                                         *
-                                         *To be safe, we should tell the robot to move into a stable position
-                                         *when the battery reading (from the motors) falls below 10.0 V*/
-
-                                        for (int i = 0; i < NUM_MOTORS; i++)
-                                        {
-                                                //                      motor_dynamixel.dxl_write_byte(i+1, TORQUE_ENABLE, 0);
-
-                                                temperature= (int) dxl_read_byte(i+1, 43);
-                                                if(i<9){
-                                                        std::cout <<"Motor  "<<i+1<<": "<< temperature <<"C"<<std::endl;
-                                                }
-                                                else{
-                                                        std::cout <<"Motor "<<i+1<<": "<< temperature <<"C"<<std::endl;
-
-                                                }
-                                        }
-                                        std::cout <<std::endl;
-
-                                        checkBattery=0; //don't allow the battery to be checked until it is set to 1 again(when another motion executes)
-                                        //return voltage > VOLTAGE_THRESHHOLD;
-                                }
+//                                if(checkBattery==1){
+//                                        batteryLevel=0; //start fresh
+//                                        dxl_write_byte(23, TORQUE_ENABLE, 0); //for neck pan motor disable torque
+//                                        double batteryCheckSamples=5;
+//                                        for(int i = 0; i<batteryCheckSamples; i++){
+//                                                batteryLevel+= (double) (dxl_read_byte(23, 42)*.1);
+//                                        }
+//
+//                                        std::cout <<std::endl<< "Battery Voltage ~ ";
+//                                        std::cout.setf( std::ios::fixed, std:: ios::floatfield ); // floatfield set to fixed
+//                                        std::cout << batteryLevel/batteryCheckSamples << "\n\n";
+//                                        /*Battery readings here are across motors, not at the leads of the power source
+//                                         *so the motors will read at about 0.5-0.7 V lower than the leads of the
+//                                         *power source. The 14.8 V LiPo batteries that we are using cannot go below
+//                                         *2.5V/cell. Our batteries have 4 cells, so the battery should not fall below 10V.
+//                                         *
+//                                         *To be safe, we should tell the robot to move into a stable position
+//                                         *when the battery reading (from the motors) falls below 10.0 V*/
+//
+//                                        for (int i = 0; i < NUM_MOTORS; i++)
+//                                        {
+//                                                //                      motor_dynamixel.dxl_write_byte(i+1, TORQUE_ENABLE, 0);
+//
+//                                                temperature= (int) dxl_read_byte(i+1, 43);
+//                                                if(i<9){
+//                                                        std::cout <<"Motor  "<<i+1<<": "<< temperature <<"C"<<std::endl;
+//                                                }
+//                                                else{
+//                                                        std::cout <<"Motor "<<i+1<<": "<< temperature <<"C"<<std::endl;
+//
+//                                                }
+//                                        }
+//                                        std::cout <<std::endl;
+//
+//                                        checkBattery=0; //don't allow the battery to be checked until it is set to 1 again(when another motion executes)
+//                                        //return voltage > VOLTAGE_THRESHHOLD;
+//                                }
                                 // We have finished moving, so we'll let the caller know
                                 returnVar =  MUL8_MOTION_FINISHED;
                                 executing = false;
@@ -719,12 +719,12 @@ int MotorController::step(bool isFalling) {
 
                                 //Print the status of the current motion.
 
-                                if(currMo.currentIndex!=0){
-                                        std::cout <<"\nMotion: "<< currMo.friendlyName <<std::endl;
-
-                                        std::cout << "Step " << currMo.currentIndex-1<< " took " <<  timeSince( lastClock) << " seconds." << std::endl;
-                                }
-                                std::cout <<"\nStep "<< currMo.currentIndex<< " of "<< currMo.length-1<< " should take " << currMo.time[currMo.currentIndex] << " seconds: " <<std::endl;
+//                                if(currMo.currentIndex!=0){
+//                                        std::cout <<"\nMotion: "<< currMo.friendlyName <<std::endl;
+//
+//                                        std::cout << "Step " << currMo.currentIndex-1<< " took " <<  timeSince( lastClock) << " seconds." << std::endl;
+//                                }
+//                                std::cout <<"\nStep "<< currMo.currentIndex<< " of "<< currMo.length-1<< " should take " << currMo.time[currMo.currentIndex] << " seconds: " <<std::endl;
 
                                 // Execute the next step
                                 balance_updates=1;
@@ -739,10 +739,10 @@ int MotorController::step(bool isFalling) {
                         //std::cout << "Returning " << returnVar << " from MotorController" << std::endl;
                         return returnVar;
                 }
-        		if(balance_updates>0){
-        		correctBalance(balance_server.checkBalance());
-        		balance_updates--;
-        		}
+//        		if(balance_updates>0){
+//        		correctBalance(balance_server.checkBalance());
+//        		balance_updates--;
+//        		}
                 return returnVar;
 
         }
@@ -877,6 +877,9 @@ bool MotorController::setMotion(std::string newMotion) {
 
                 result = true;
         }
+        else {
+        	std::cout << "Tried to set motion to " << newMotion << std::endl;
+        }
         //std::cout<<"setMotion works"<<std::endl;
         return result;
 }
@@ -926,43 +929,43 @@ void MotorController::sendSyncWrite(std::vector<int> ids, int address, int instr
         dxl_set_txpacket_length((instruction_length+1)*idsLength+4);//(2+1) for writing a word, (1+1) for writing a byte, 4 is a constant
 
         dxl_txrx_packet();//sends the packet
-        result = dxl_get_result( );
-
-        if( result == COMM_TXSUCCESS )
-
-        {
-                std::cout << "COMM_TXSUCCESS "<<std::endl;
-        }
-
-        else if( result == COMM_RXSUCCESS )
-
-        {
-                std::cout << " "<<std::endl;
-        }
-
-        else if( result == COMM_TXFAIL )
-
-        {
-                std::cout << "COMM_TXFAIL "<<std::endl;
-        }
-
-        else if( result == COMM_RXFAIL)
-
-        {
-                std::cout << "COMM_RXFAIL "<<std::endl;
-        }
-
-        else if( result == COMM_TXERROR )
-
-        {
-                std::cout << "COMM_TXERROR "<<std::endl;
-        }
-
-        else if( result == COMM_RXWAITING )
-
-        {
-                std::cout << "COMM_RXWAITING "<<std::endl;
-        }
+//        result = dxl_get_result( );
+//
+//        if( result == COMM_TXSUCCESS )
+//
+//        {
+//                std::cout << "COMM_TXSUCCESS "<<std::endl;
+//        }
+//
+//        else if( result == COMM_RXSUCCESS )
+//
+//        {
+//                std::cout << " "<<std::endl;
+//        }
+//
+//        else if( result == COMM_TXFAIL )
+//
+//        {
+//                std::cout << "COMM_TXFAIL "<<std::endl;
+//        }
+//
+//        else if( result == COMM_RXFAIL)
+//
+//        {
+//                std::cout << "COMM_RXFAIL "<<std::endl;
+//        }
+//
+//        else if( result == COMM_TXERROR )
+//
+//        {
+//                std::cout << "COMM_TXERROR "<<std::endl;
+//        }
+//
+//        else if( result == COMM_RXWAITING )
+//
+//        {
+//                std::cout << "COMM_RXWAITING "<<std::endl;
+//        }
 }
 
 Motion MotorController::getMotionFile() {
@@ -1546,9 +1549,11 @@ void MotorController::chooseCompliantLimb(int step, int motorID, int new_complia
 void MotorController::setCompliantLimb(int compliancy){
         currentTorque= compliancy;
 }
-//void MotorController::setTorqueLimit(int id, int torque) {            //set new torque limits
-//      dxl_write_word(id, TORQUE_LIMIT, torque);
-//}
+
+void MotorController::setTorqueLimit(int id, int torque) {            //set new torque limits
+      dxl_write_word(id, MAX_TORQUE, torque);
+}
+
 void MotorController::disableMotor(int motor) {
         dxl_write_byte(motor, TORQUE_ENABLE, 0);
 }
@@ -2798,4 +2803,44 @@ double MotorController::getHeadDownAngle() {
 
 	return angle;
 
+}
+
+double MotorController::getBatteryVoltage() {
+
+		batteryLevel=0; //start fresh
+		dxl_write_byte(23, TORQUE_ENABLE, 0); //for neck pan motor disable torque
+		double batteryCheckSamples=5;
+		for(int i = 0; i<batteryCheckSamples; i++){
+			batteryLevel+= (double) (dxl_read_byte(23, 42)*.1);
+		}
+
+//		std::cout <<std::endl<< "Battery Voltage ~ ";
+//		std::cout.setf( std::ios::fixed, std:: ios::floatfield ); // floatfield set to fixed
+//		std::cout << batteryLevel/batteryCheckSamples << "\n\n";
+//		/*Battery readings here are across motors, not at the leads of the power source
+//		 *so the motors will read at about 0.5-0.7 V lower than the leads of the
+//		 *power source. The 14.8 V LiPo batteries that we are using cannot go below
+//		 *2.5V/cell. Our batteries have 4 cells, so the battery should not fall below 10V.
+//		 *
+//		 *To be safe, we should tell the robot to move into a stable position
+//		 *when the battery reading (from the motors) falls below 10.0 V*/
+//
+//		for (int i = 0; i < NUM_MOTORS; i++)
+//		{
+//			//                      motor_dynamixel.dxl_write_byte(i+1, TORQUE_ENABLE, 0);
+//
+//			temperature= (int) dxl_read_byte(i+1, 43);
+//			if(i<9){
+//				std::cout <<"Motor  "<<i+1<<": "<< temperature <<"C"<<std::endl;
+//			}
+//			else{
+//				std::cout <<"Motor "<<i+1<<": "<< temperature <<"C"<<std::endl;
+//
+//			}
+//		}
+//		std::cout <<std::endl;
+
+		checkBattery=0; //don't allow the battery to be checked until it is set to 1 again(when another motion executes)
+
+		return (batteryLevel/batteryCheckSamples);
 }
