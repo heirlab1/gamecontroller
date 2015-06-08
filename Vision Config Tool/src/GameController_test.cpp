@@ -18,12 +18,12 @@ int main(int argc, char** argv) {
 
 //	RoboCupGameControlData myData;
 
-	int delayTime;
+	int delayTime = 5;
 
 	std::cout << "Start in how many seconds? ";
-	std::string input;
-	std::cin >> input;
-	std::stringstream(input)>>delayTime;
+	//std::string input;
+	//std::cin >> input;
+	//std::stringstream(input)>>delayTime;
 
 	mul8.setState(MUL8_STATE_INIT);
 	mul8.step();

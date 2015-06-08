@@ -56,7 +56,7 @@ bool MUL8::search() {
 	vis.nextFrame();
 
 	while (!done) {
-		//		std::cout << "Entered loop" << std::endl;
+		//std::cout << "Entered loop" << std::endl;
 		if (!position && vis.knowsRobotPosition()) {
 			vis.setAction(SEARCH_FOR_BALL);
 			std::cout << "Searching for Ball" << std::endl;
@@ -485,9 +485,17 @@ void MUL8::init() {
 		motorController.setMotorPosition(23, 2048, 25);
 		motorController.setMotorPosition(24, M24_CCW, 25);
 		motorController.setTorqueLimit(24, 300);
-		motorController.step(false);
-		vis.setAction(SEARCH_FOR_GOAL);
+		//std::cout<<"I'm reaching here"<<std::endl;
+		//motorController.step(false);
+		//{
+			//std::cout<<"Searching for ball loop"<<std::endl;
+			//setAction(MUL8_ACTION_SEARCH);
+			//search();
+			//actionStep();
+			//sleep(4*1000);
+		//}
 		MUL8_initialized = true;
+		std::cout<<"I'm reaching here"<<std::endl;
 	}
 }
 
@@ -517,7 +525,7 @@ void MUL8::play() {
 		setAction(MUL8_ACTION_WALK_TOWARDS_BALL);
 		//		}
 	}
-	//	setAction(MUL8_ACTION_SEARCH);
+		setAction(MUL8_ACTION_SEARCH);// <---------------------------------------- DECOMMENT
 	actionStep();
 	double batteryVolts = motorController.getBatteryVoltage();
 

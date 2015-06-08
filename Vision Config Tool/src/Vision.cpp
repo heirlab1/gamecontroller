@@ -365,16 +365,16 @@ void Vision::setAction(int newAction) {
 bool Vision::knowsBallPosition() {
 	bool result = true;
 
-//	std:: cout << "Ball distance values: ";
+	std:: cout << "Ball distance values: ";
 	// If any of the distance indexes are 0, we don't have enough information to say we know where the ball is
 	for (int i = 0; i < history_size; i++) {
 		if (ball_distance[i] <= 0) {
 			result = false;
 			break;
 		}
-//		std::cout << "(" << ball_distance[i] << ") ";
+		std::cout << "(" << ball_distance[i] << ") ";
 	}
-//	std::cout << std::endl;
+	std::cout << std::endl;
 	return result;
 }
 
@@ -2029,14 +2029,20 @@ void Vision::search_for_goal(Mat frame) {
 void Vision::search_for_ball(Mat frame) {
 	// Get the bounding rectangle for the ball
 	Rect ball = processBall(frame);
-
+	std::cout<<"Ball on Screen"<<std::endl;
 	// If the ball is on screen, switch modes to centering the ball
 	if (ball.x >= 0) {
+		std::cout<<"Ball on Screen"<<std::endl;
 		motorController->stopHead();
 		setAction(CENTER_BALL);
 	}
 	// Otherwise search for the ball using a simple head moving algorithm
 	else {
+		std::cout<<"Ball not found"<<std::endl;
+		std::cout<<"Head Left: "<<headLeft<<std::endl;
+		std::cout<<"Head Right: "<<headRight<<std::endl;
+		std::cout<<"Head Down: "<<headDown<<std::endl;
+		std::cout<<"Head Up: "<<headUp<<std::endl;
 		// Here we implement a searching algorithm since we don't know where the ball is
 		if (!headLeft) {
 			motorController->moveHead(MUL8_HEAD_LEFT, searching_speed);
