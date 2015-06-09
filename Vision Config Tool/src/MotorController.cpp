@@ -2839,8 +2839,7 @@ double MotorController::getBatteryVoltage() {
 //			}
 //		}
 //		std::cout <<std::endl;
-		std::cout << "My battery level is: " << batteryLevel << std::endl;
-		batteryLevel=120;
+
 		checkBattery=0; //don't allow the battery to be checked until it is set to 1 again(when another motion executes)
 
 		return (batteryLevel/batteryCheckSamples);
